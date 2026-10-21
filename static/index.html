@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pulse by ABC: customer success, measured</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+  <!-- ABC Pulse public marketing site. ABC Company and every customer name are fictional. -->
+  <header class="nav">
+    <div class="container">
+      <a class="logo" href="/"><span class="logo-mark"></span>ABC Pulse</a>
+      <nav class="nav-links">
+        <a href="#features">Product</a>
+        <a href="#features">Customers</a>
+        <a href="#features">Pricing</a>
+      </nav>
+      <span class="nav-spacer"></span>
+      <a class="btn btn-secondary" href="/app">Sign in</a>
+    </div>
+  </header>
+
+  <main>
+    <!--
+      Hero section. This is the "control" hero.
+      Later phases put this section behind the `landing-hero` flag, which
+      swaps in other variants (e.g. an ROI calculator) by targeting rule.
+    -->
+    <section class="hero" id="hero">
+      <div class="container">
+        <span class="eyebrow">Customer success platform</span>
+        <h1>Know who will renew before renewal season.</h1>
+        <p class="lede">
+          Pulse combines product usage, support load, and customer sentiment
+          into one health score, so your CS team can act on churn risk weeks earlier.
+        </p>
+        <div class="hero-actions">
+          <!-- This CTA becomes the experiment's primary conversion event in a later phase. -->
+          <button class="btn btn-primary" id="demo-cta" type="button">Request a demo</button>
+          <a class="btn btn-secondary" href="#features">See how it works</a>
+        </div>
+      </div>
+    </section>
+
+    <!--
+      Customer logo wall. Each name is styled as a fake wordmark with CSS only
+      (system fonts, no images). The list appears twice so the scroll loops
+      seamlessly. The second copy is hidden from screen readers.
+    -->
+    <section class="logo-strip" aria-labelledby="logo-strip-title">
+      <p class="logo-strip-title" id="logo-strip-title">Trusted by customer success teams at</p>
+      <div class="marquee">
+        <div class="marquee-track">
+          <ul class="marquee-group">
+            <li class="brand brand-northwind">Northwind<span>Analytics</span></li>
+            <li class="brand brand-bluefin">bluefin</li>
+            <li class="brand brand-juniper">Juniper Health</li>
+            <li class="brand brand-kestrel">KESTREL<span>LOGISTICS</span></li>
+            <li class="brand brand-copperleaf">Copperleaf</li>
+            <li class="brand brand-halcyon">halcyon cloud</li>
+            <li class="brand brand-ironbark">IRONBARK</li>
+            <li class="brand brand-starling">Star<span>ling</span></li>
+            <li class="brand brand-tidewater">tidewater_</li>
+            <li class="brand brand-marigold">Marigold</li>
+          </ul>
+          <ul class="marquee-group" aria-hidden="true">
+            <li class="brand brand-northwind">Northwind<span>Analytics</span></li>
+            <li class="brand brand-bluefin">bluefin</li>
+            <li class="brand brand-juniper">Juniper Health</li>
+            <li class="brand brand-kestrel">KESTREL<span>LOGISTICS</span></li>
+            <li class="brand brand-copperleaf">Copperleaf</li>
+            <li class="brand brand-halcyon">halcyon cloud</li>
+            <li class="brand brand-ironbark">IRONBARK</li>
+            <li class="brand brand-starling">Star<span>ling</span></li>
+            <li class="brand brand-tidewater">tidewater_</li>
+            <li class="brand brand-marigold">Marigold</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="container">
+        <h2>Everything your CS team needs in one place</h2>
+        <div class="feature-grid">
+          <div class="card">
+            <h3>Account health scores</h3>
+            <p>A score from 0 to 100 for every account, built from usage, adoption, support, and NPS.</p>
+          </div>
+          <div class="card">
+            <h3>Renewal forecasting</h3>
+            <p>See which renewals are at risk and why, with the drivers spelled out.</p>
+          </div>
+          <div class="card">
+            <h3>Adoption insights</h3>
+            <p>Track seat utilization and feature adoption for each account to spot expansion opportunities.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">© 2026 ABC Company (fictional demo company). Built to demonstrate LaunchDarkly.</div>
+  </footer>
+
+  <script src="/static/js/marketing.js"></script>
+</body>
+</html>

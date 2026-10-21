@@ -1,0 +1,472 @@
+/* ABC Pulse: shared styles for the marketing site (/) and the Pulse app (/app). */
+
+:root {
+  --brand: #5b3df5;
+  --brand-dark: #4327d6;
+  --brand-soft: #eeeaff;
+  --accent: #10b5a4;
+  --ink: #16142b;
+  --ink-soft: #5a5872;
+  --line: #e4e2ee;
+  --bg: #ffffff;
+  --bg-muted: #f7f6fb;
+  --good: #11875d;
+  --warn: #b26a00;
+  --bad: #c62c3c;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(22, 20, 43, 0.06), 0 4px 16px rgba(22, 20, 43, 0.06);
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.container {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding-inline: 20px;
+}
+
+/* ---------- Top navigation (both surfaces) ---------- */
+
+.nav {
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+.nav .container {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 64px;
+  flex-wrap: wrap;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ink);
+}
+.logo:hover { text-decoration: none; }
+.logo-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--brand), var(--accent));
+}
+.nav-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.nav-links a { color: var(--ink-soft); }
+.nav-spacer { flex: 1; }
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-block;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:hover { text-decoration: none; }
+.btn-primary { background: var(--brand); color: #fff; }
+.btn-primary:hover { background: var(--brand-dark); }
+.btn-secondary { background: var(--bg); color: var(--ink); border-color: var(--line); }
+.btn-secondary:hover { background: var(--bg-muted); }
+
+/* ---------- Marketing: hero ---------- */
+
+.hero {
+  padding-block: 72px 56px;
+  background: radial-gradient(1000px 400px at 80% -10%, var(--brand-soft), transparent);
+}
+.hero h1 {
+  font-size: clamp(32px, 5vw, 52px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+  max-width: 16ch;
+}
+.hero p.lede {
+  font-size: 18px;
+  color: var(--ink-soft);
+  max-width: 56ch;
+  margin: 0 0 28px;
+}
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.eyebrow {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand);
+  background: var(--brand-soft);
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+
+/* ---------- Marketing: logo strip + features ---------- */
+
+.logo-strip {
+  padding-block: 28px 32px;
+  border-block: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+.logo-strip-title {
+  margin: 0 0 20px;
+  padding-inline: 20px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Logo marquee: the track holds two identical groups and slides left by
+   exactly one group (-50%), so the loop has no visible seam. max-width keeps
+   one group wider than the visible window, even on very wide screens. */
+.marquee {
+  max-width: 1400px;
+  margin-inline: auto;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 45s linear infinite;
+}
+.marquee:hover .marquee-track { animation-play-state: paused; }
+.marquee-group {
+  display: flex;
+  align-items: center;
+  gap: 64px;
+  padding: 0 64px 0 0; /* trailing gap matches the inner gap at the seam */
+  margin: 0;
+  list-style: none;
+}
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+
+/* Respect reduced-motion settings: show one static, wrapped row instead. */
+@media (prefers-reduced-motion: reduce) {
+  .marquee { -webkit-mask-image: none; mask-image: none; padding-inline: 20px; }
+  .marquee-track { animation: none; width: auto; justify-content: center; }
+  .marquee-group { flex-wrap: wrap; justify-content: center; gap: 16px 40px; padding: 0; }
+  .marquee-group[aria-hidden="true"] { display: none; }
+}
+
+/* Fake wordmarks: each customer gets its own type treatment, using only
+   system font stacks so nothing is downloaded. Grayscale like a real logo wall. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: #6f6d85;
+  font-size: 22px;
+  line-height: 1;
+}
+.brand-northwind { font-weight: 800; letter-spacing: -0.04em; }
+.brand-northwind::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 4px solid currentColor;
+}
+.brand-northwind span { font-weight: 400; letter-spacing: 0; font-size: 15px; margin-left: 2px; }
+
+.brand-bluefin {
+  font-family: "Arial Rounded MT Bold", "Varela Round", "Trebuchet MS", sans-serif;
+  font-weight: 800;
+  font-size: 25px;
+  letter-spacing: -0.02em;
+}
+.brand-bluefin::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 16px solid currentColor;
+  transform: rotate(-20deg);
+}
+
+.brand-juniper {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 23px;
+}
+
+.brand-kestrel {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.32em;
+}
+.brand-kestrel span { font-size: 9px; font-weight: 600; letter-spacing: 0.62em; }
+
+.brand-copperleaf {
+  font-family: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  font-weight: 700;
+  font-size: 24px;
+}
+.brand-copperleaf::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  border-radius: 0 70% 0 70%;
+}
+
+.brand-halcyon {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 300;
+  letter-spacing: 0.14em;
+  font-size: 21px;
+}
+
+.brand-ironbark {
+  font-family: Impact, "Arial Narrow", "Franklin Gothic Medium", sans-serif;
+  font-size: 26px;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border: 3px solid currentColor;
+}
+
+.brand-starling {
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  gap: 0;
+}
+.brand-starling::before { content: "\2726"; font-size: 18px; margin-right: 6px; }
+.brand-starling span { font-weight: 300; }
+
+.brand-tidewater {
+  font-family: "Courier New", Consolas, ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 21px;
+  letter-spacing: -0.03em;
+}
+
+.brand-marigold {
+  font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive;
+  font-size: 32px;
+}
+
+.features { padding-block: 64px; }
+.features h2 { font-size: 28px; margin: 0 0 32px; text-align: center; }
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+.card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.card h3 { margin: 0 0 8px; font-size: 17px; }
+.card p { margin: 0; color: var(--ink-soft); }
+
+.footer {
+  padding-block: 32px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+/* ---------- Toast (CTA confirmation, flag-change notices) ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  max-width: calc(100% - 32px);
+}
+
+/* ---------- Pulse app layout ---------- */
+
+body.app { background: var(--bg-muted); }
+
+.app-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 20px;
+  padding-block: 24px;
+  align-items: start;
+}
+
+/* Wide screens: the page scrolls, so the table header sticks to the top of
+   the window and the detail panel stays in view beside the list.
+   (Sticky only works if no ancestor scrolls, so the table can't overflow here.) */
+@media (min-width: 1100px) {
+  .accounts-wrap { overflow: visible; }
+  #account-detail { position: sticky; top: 16px; }
+}
+
+/* Narrower screens: one column. The list scrolls inside its own box with the
+   header stuck to the box's top, which still allows sideways scrolling on phones. */
+@media (max-width: 1099px) {
+  .app-main { grid-template-columns: minmax(0, 1fr); }
+  .accounts-wrap { max-height: 70vh; overflow: auto; }
+}
+
+.panel-meta { display: flex; align-items: baseline; gap: 12px; }
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--brand);
+  cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; }
+
+.panel-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.panel-title h2 { margin: 0; font-size: 18px; }
+.muted { color: var(--ink-soft); font-size: 13px; }
+
+/* Tables scroll sideways on their own, so the page never does. */
+.table-wrap { overflow-x: auto; }
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+table.data th,
+table.data td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+table.data th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+table.data td.num, table.data th.num { text-align: right; }
+table.data td.wrap { white-space: normal; }
+table.data tbody tr { cursor: pointer; }
+table.data tbody tr:hover { background: var(--bg-muted); }
+table.data tbody tr.selected { background: var(--brand-soft); }
+table.data tbody tr:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+table.data tr.empty-row { cursor: default; }
+table.data td.empty { text-align: center; color: var(--ink-soft); padding-block: 24px; }
+
+/* Sticky header. Collapsed borders don't travel with sticky cells, so the
+   bottom line is drawn with a box-shadow instead. */
+table.data thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+table.data thead th {
+  background: var(--bg);
+  border-bottom: 0;
+}
+table.data thead tr.filter-row th {
+  padding-top: 0;
+  box-shadow: inset 0 -1px 0 var(--line);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Sortable column titles */
+.sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.sort-btn:hover { color: var(--ink); }
+.sort-icon::after { content: "\2195"; opacity: 0.35; } /* up-down arrow: sortable */
+th[aria-sort="ascending"] .sort-btn,
+th[aria-sort="descending"] .sort-btn { color: var(--brand); }
+th[aria-sort="ascending"] .sort-icon::after { content: "\25B2"; opacity: 1; font-size: 9px; }
+th[aria-sort="descending"] .sort-icon::after { content: "\25BC"; opacity: 1; font-size: 9px; }
+
+/* Per-column filter controls. width:100% lets them shrink to fit the column. */
+.filter-input {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--bg);
+}
+.filter-input:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
+
+/* Key/value usage-stats table in the account detail view */
+table.kv { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.kv th, table.kv td { padding: 7px 0; border-bottom: 1px solid var(--line); }
+table.kv th { text-align: left; font-weight: 500; color: var(--ink-soft); }
+table.kv td { text-align: right; font-variant-numeric: tabular-nums; }
+
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-muted);
+  border: 1px solid var(--line);
+}
+
+.error {
+  color: var(--bad);
+  background: #fdecee;
+  border: 1px solid #f5c2c8;
+  padding: 10px 12px;
+  border-radius: 8px;
+}

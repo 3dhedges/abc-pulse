@@ -1,0 +1,4 @@
+# Web server
+Flask==3.1.2
+# Loads settings from .env into environment variables at startup
+python-dotenv==1.1.1

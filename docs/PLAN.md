@@ -167,7 +167,7 @@ External customer user (no beta).
 
 ## 10. Phases (stop and commit after each)
 
-- [ ] **Phase 0 — Scaffold:** repo layout, `.gitignore`, `.env.example`, `requirements.txt`,
+- [x] **Phase 0 — Scaffold:** repo layout, `.gitignore`, `.env.example`, `requirements.txt`,
       Flask app serving both pages, `seed_data.py`, README skeleton.
 - [ ] **Phase 1 — LD wiring:** SDK init (server + client), flag constants, fallbacks, persona switchers.
 - [ ] **Phase 2 — Part 1:** health panel, listener, buggy v2 calc, `/api/health`, kill-switch, watchdog.

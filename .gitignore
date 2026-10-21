@@ -1,3 +1,15 @@
-﻿.env
+# Secrets: copy .env.example to .env and fill in your own keys
+.env
+
+# Python
 .venv/
 __pycache__/
+*.pyc
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+
+# ld-find-code-refs local cache
+.ld-code-refs/
