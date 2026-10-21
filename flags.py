@@ -26,3 +26,12 @@ ACCOUNT_ASSISTANT = "account-assistant"
 
 # Experiment metric (custom conversion event) sent with track() on the demo CTA.
 METRIC_DEMO_REQUEST_CLICKED = "demo-request-clicked"
+
+# Value served when LaunchDarkly can't be reached, the SDK key is missing, or
+# the flag doesn't exist yet. Each fallback is the safe, existing experience,
+# so an outage never releases an unfinished feature.
+FALLBACKS = {
+    ACCOUNT_HEALTH_PANEL: False,
+    HEALTH_SCORE_V2_CALC: False,
+    LANDING_HERO: "control",
+}

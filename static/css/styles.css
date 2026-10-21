@@ -463,6 +463,82 @@ table.kv td { text-align: right; font-variant-numeric: tabular-nums; }
   border: 1px solid var(--line);
 }
 
+/* ---------- Demo controls panel (not part of the product) ---------- */
+
+.demo-panel {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: #1d1b33;
+  color: #e9e7f5;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(22, 20, 43, 0.35);
+  font-size: 13px;
+}
+.demo-panel-toggle {
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+}
+.demo-panel-toggle::after { content: "\25BE"; } /* down caret */
+.demo-panel.collapsed { width: auto; }
+.demo-panel.collapsed .demo-panel-toggle::after { content: "\25B4"; margin-left: 10px; }
+.demo-panel.collapsed .demo-panel-body { display: none; }
+
+.demo-panel-body { padding: 0 14px 14px; }
+.demo-panel-note { margin: 0 0 10px; color: #a9a6c4; font-size: 12px; }
+.demo-label { display: grid; gap: 4px; font-weight: 600; }
+.demo-persona-desc { margin: 6px 0 4px; color: #c9c6e0; }
+.demo-panel .link-btn { color: #b9a9ff; }
+.demo-panel h4 {
+  margin: 14px 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #a9a6c4;
+}
+.demo-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+.demo-list dt { color: #a9a6c4; }
+.demo-list dd { margin: 0; text-align: right; }
+.mono { font-family: ui-monospace, Consolas, "Courier New", monospace; font-size: 12px; }
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background: #8a87a3; /* starting / connecting */
+}
+.dot-connected { background: #34d399; }
+.dot-timeout, .dot-not-configured { background: #fbbf24; }
+.dot-failed, .dot-error { background: #f87171; }
+
+/* Brief highlight when a flag value changes live */
+.flash { animation: flash 1.2s ease-out; }
+@keyframes flash {
+  from { background: #5b3df5; color: #fff; }
+  to { background: transparent; }
+}
+
 .error {
   color: var(--bad);
   background: #fdecee;

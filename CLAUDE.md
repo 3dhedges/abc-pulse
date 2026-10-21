@@ -15,8 +15,12 @@ ABC Company sells **Pulse**, a customer-success platform for B2B SaaS companies.
 ## Stack (keep it lean)
 - Python 3.11+, Flask (only web dependency)
 - LaunchDarkly Python server SDK + Python AI SDK (server side)
-- LaunchDarkly JavaScript client SDK loaded in the browser (no bundler, no framework)
+- LaunchDarkly JavaScript client SDK v4 (`@launchdarkly/js-client-sdk`), self-hosted at
+  `static/vendor/launchdarkly/js-client-sdk@<version>/index.js` (unmodified npm ESM build,
+  imported by `static/js/ld.js`). v4 has no UMD/global build, so all page JS is ES modules.
 - Plain HTML/CSS/vanilla JS. No React, no build step.
+- Personas = LD contexts, defined once in `personas.py`, served to the browser via `/api/config`.
+  The app sends `X-Persona` on API calls so server-side evaluations use the same context.
 - Data: generated JSON via stdlib `random`. No database.
 - Prefer the standard library. Ask before adding any new dependency.
 
@@ -26,6 +30,8 @@ ABC Company sells **Pulse**, a customer-success platform for B2B SaaS companies.
   `# LD SETUP:` (Python) or `// LD SETUP:` (JS), saying exactly what to do.
 - Flag keys are defined once as constants (Python: `flags.py`; JS: top of `static/js/ld.js`).
 - Every flag evaluation passes a safe fallback value; the app must run if LaunchDarkly is unreachable.
+  Evaluate only through the helpers (`ld.evaluate()` in Python, `variation()` from `ld.js`),
+  which apply the `FALLBACKS` maps.
 - The app must run without an LLM API key (mock assistant provider).
 - All company/account names are fictional.
 - Before editing SDK code, check current LaunchDarkly docs (https://launchdarkly.com/docs) —

@@ -38,12 +38,66 @@ _Detailed business framing for each part: Coming in Phase 7._
 
 ## 3. LaunchDarkly setup
 
-_Coming in Phase 1 and Phase 6:_ automated setup with `scripts/setup_launchdarkly.py`, plus
-manual step-by-step instructions (flag keys, variations, targeting rules, trigger, metric,
-experiment, and AI Config).
+The app runs without LaunchDarkly: every flag then serves its **fallback value** (the
+existing, safe experience). Connect it to see flags, targeting, and live updates.
 
-All keys and secrets go in a `.env` file. [`.env.example`](.env.example) lists each one, with
-comments explaining where to find it in the LaunchDarkly UI.
+### 3.1 Connect the SDKs
+
+1. Sign in to LaunchDarkly (a [trial account](https://launchdarkly.com/start-trial/) works).
+2. Create a project, e.g. **ABC Pulse** (key `abc-pulse`). It comes with **Test** and
+   **Production** environments. Use **Test** for this demo.
+3. Open **Project settings → Environments → Test**, then copy two values into your `.env`
+   (see step 4.3):
+
+   | `.env` variable | LaunchDarkly value | Used by | Secret? |
+   |---|---|---|---|
+   | `LD_SDK_KEY` | **SDK key** (starts with `sdk-`) | Python server SDK ([ld.py](ld.py)) | **Yes**: never put it in browser code |
+   | `LD_CLIENT_SIDE_ID` | **Client-side ID** | JavaScript SDK in the browser ([static/js/ld.js](static/js/ld.js)) | No: designed to be public |
+
+4. Restart `python app.py`. The **Demo controls** panel (bottom-right) should show both
+   SDKs as **Connected**.
+
+### 3.2 Flags
+
+_Each phase adds its flags here, with exact keys, variations, and targeting:_
+`account-health-panel` and `health-score-v2-calc` (Phase 2), `landing-hero` (Phase 3).
+Automated setup with `scripts/setup_launchdarkly.py` is coming in Phase 6.
+
+> **Important for every flag the browser reads:** in the flag's settings, under **Client-side
+> SDK availability**, check **SDKs using Client-side ID**. Without it, the browser SDK can't
+> see the flag and serves the fallback.
+
+### 3.3 How the app talks to LaunchDarkly
+
+- **Browser:** [static/js/ld.js](static/js/ld.js) starts the JavaScript SDK
+  (`@launchdarkly/js-client-sdk` v4) with a **streaming** connection and a **change listener**.
+  When a flag changes in LaunchDarkly, the page updates instantly, with no reload.
+  The SDK is **self-hosted** under `static/vendor/`, copied unmodified from the npm package, as
+  LaunchDarkly recommends for production instead of a public CDN.
+- **Server:** [ld.py](ld.py) starts the Python server SDK once per process. All server-side
+  evaluations go through `ld.evaluate()`, which applies the fallbacks from [flags.py](flags.py).
+- **Contexts:** the "who" that flags are evaluated for. They're defined once in
+  [personas.py](personas.py) and used by both the browser and the server:
+  - **Marketing site:** a `user` context per visitor, with `industry`, `companySize`,
+    `country`, `referrer`, and `device`. Anonymous visitors are marked `anonymous`.
+  - **Pulse app:** a **multi-context** of `user` (`role`, `region`, `betaTester`, `email`)
+    plus `organization` (the customer company: `plan`, `seats`). `email` is a **private
+    attribute**: it can still be used in targeting rules, but its value is never sent to
+    LaunchDarkly in analytics events.
+
+### 3.4 The Demo controls panel
+
+Both pages have a dark **Demo controls** card in the bottom-right corner. It is **not part of
+the product**. It stands in for real visitors and logged-in users:
+
+- **Persona:** switches the LaunchDarkly context with `identify()`, so targeting changes appear
+  live. Choose **Random visitor**, then **↻ New random visitor**, to see percentage rollouts
+  bucket different visitors.
+- **Connection:** status of the browser and server SDKs. Hover over a status for details.
+- **Flags (live):** the current value of each flag on this page. A value flashes when it
+  changes in LaunchDarkly.
+
+Click the panel's title to collapse it.
 
 ---
 
@@ -118,6 +172,11 @@ _Coming in Phases 2–5:_ a "do X, watch Y" walkthrough for each part.
 | `Missing .../data/accounts.json` on startup | Run `python scripts/seed_data.py`. |
 | `ModuleNotFoundError: No module named 'flask'` | Activate the virtual environment (step 4.1), then `pip install -r requirements.txt`. |
 | `python` not found on macOS/Linux | Use `python3`. |
+| Demo panel shows **Not configured** | `LD_SDK_KEY` / `LD_CLIENT_SIDE_ID` is missing from `.env`. Add it and restart the server. |
+| Server SDK shows **Error: HTTP 401** | The SDK key is wrong or belongs to another environment. Copy it again from **Project settings → Environments**. |
+| Browser SDK shows **Failed** or **Timed out** | Check `LD_CLIENT_SIDE_ID`. Ad blockers and privacy extensions often block `*.launchdarkly.com`; allow the site or try a private window. |
+| A flag always shows its fallback in the browser | Enable **SDKs using Client-side ID** in the flag's settings, and check that the flag key matches exactly. |
+| Changes in the code don't show up | Stop **every** running copy of `python app.py`. On Windows, a second server can quietly share port 5000 with an old one. |
 
 ---
 
@@ -132,7 +191,9 @@ _Coming in Phase 7._
 ```
 abc-pulse/
 ├── app.py               # Flask server: pages + JSON API
-├── flags.py             # LaunchDarkly flag keys (single source of truth, server side)
+├── ld.py                # LaunchDarkly server SDK setup + evaluate() helper
+├── flags.py             # Flag keys and fallback values (server side)
+├── personas.py          # Demo personas = LaunchDarkly contexts (shared with the browser)
 ├── requirements.txt
 ├── .env.example         # Every setting the app reads, with setup notes
 ├── data/accounts.json   # Generated fictional accounts
@@ -142,7 +203,12 @@ abc-pulse/
 │   ├── index.html       # Marketing site
 │   ├── app.html         # Pulse app
 │   ├── css/styles.css
-│   └── js/              # marketing.js, app.js
+│   ├── js/
+│   │   ├── ld.js          # LaunchDarkly browser SDK setup, flag keys, fallbacks
+│   │   ├── demo-panel.js  # Demo controls: persona switcher, status, live flag values
+│   │   ├── marketing.js
+│   │   └── app.js
+│   └── vendor/launchdarkly/ # Self-hosted JS SDK (unmodified npm build + license)
 └── docs/PLAN.md         # Build plan
 ```
 

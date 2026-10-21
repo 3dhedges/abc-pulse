@@ -5,11 +5,14 @@ Routes
     /app                     Pulse app for customer success managers (static/app.html)
     GET /api/accounts        all customer accounts
     GET /api/accounts/<id>   one account, or 404
+    GET /api/config          browser config: LaunchDarkly client-side ID + demo personas
+    GET /api/status          server-side LaunchDarkly SDK connection state
 
 Run:  python app.py   (then open http://localhost:5000)
 """
 
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -17,9 +20,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, abort, jsonify, send_from_directory
 
-# Load .env before anything reads os.environ. If .env is missing, this does
-# nothing; the app still runs with defaults.
+# Load .env before anything reads os.environ (including ld.py). If .env is
+# missing, this does nothing; the app still runs with defaults.
 load_dotenv()
+
+import ld  # noqa: E402  (must come after load_dotenv)
+import personas  # noqa: E402
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -41,6 +49,10 @@ def load_accounts():
 
 
 ACCOUNTS = load_accounts()
+
+# Connect to LaunchDarkly once per process. Without LD_SDK_KEY this runs
+# offline and every flag uses its fallback value.
+ld.init_ld()
 
 
 @app.get("/")
@@ -70,6 +82,27 @@ def get_account(account_id):
     return jsonify(account)
 
 
+@app.get("/api/config")
+def client_config():
+    """Settings the browser needs to start the LaunchDarkly JavaScript SDK.
+
+    The client-side ID is designed to be public (it only reads flags marked
+    available to client-side SDKs). The server-side SDK key never leaves the server.
+    """
+    # LD SETUP: Set LD_CLIENT_SIDE_ID in .env (Project settings > Environments >
+    # your environment > Client-side ID). If blank, the browser uses fallback values.
+    return jsonify(
+        clientSideId=os.environ.get("LD_CLIENT_SIDE_ID", "").strip(),
+        personas=personas.all_personas(),
+    )
+
+
+@app.get("/api/status")
+def ld_status():
+    """Server SDK connection state, shown in the demo panel."""
+    return jsonify(server=ld.status())
+
+
 @app.errorhandler(404)
 def not_found(error):
     """Return 404s as JSON so the frontend can show the message."""
@@ -79,6 +112,6 @@ def not_found(error):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     print(f"ABC Pulse running at http://localhost:{port}  (app: /app)")
-    # debug=False keeps a single process. The LaunchDarkly SDK (Phase 1) should
-    # be initialized once per process, and the reloader would start a second one.
+    # debug=False keeps a single process. The LaunchDarkly SDK should be
+    # initialized once per process, and the reloader would start a second one.
     app.run(host="127.0.0.1", port=port, debug=False)
