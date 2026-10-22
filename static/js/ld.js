@@ -23,6 +23,13 @@ export const FLAGS = {
   LANDING_HERO: 'landing-hero',
 };
 
+// Custom event keys for experiment metrics, sent with track().
+// LD SETUP: Create a metric for each with exactly this event key (README 3.2).
+export const METRICS = {
+  DEMO_REQUEST_CLICKED: 'demo-request-clicked', // primary
+  PRICING_PAGE_VIEWED: 'pricing-page-viewed', // secondary (guardrail)
+};
+
 // Value used when LaunchDarkly is unreachable, not configured, or the flag
 // doesn't exist yet. Always the safe, existing experience.
 export const FALLBACKS = {
@@ -175,7 +182,10 @@ export function onStatusChange(callback) {
   callback(status);
 }
 
-/** Send a custom event (used for experiment metrics in a later phase). */
+/**
+ * Send a custom event for the current context. Experiment metrics count
+ * these against the variation the same context was served.
+ */
 export function track(eventKey, data, metricValue) {
   if (client) client.track(eventKey, data, metricValue);
 }

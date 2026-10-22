@@ -8,7 +8,7 @@
 // targets, rules on context attributes, then a percentage rollout.
 
 import { initDemoPanel } from './demo-panel.js';
-import { FLAGS, variation, onFlagChange, onStatusChange } from './ld.js';
+import { FLAGS, METRICS, variation, onFlagChange, onStatusChange, track } from './ld.js';
 
 const hero = document.getElementById('hero');
 
@@ -89,11 +89,17 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 2500);
 }
 
-// One delegated handler covers the CTA in every variant. The demo request is
-// simulated; there is no backend form.
+// One delegated handler covers the CTA in every variant, plus the Pricing
+// link. Each click is sent to LaunchDarkly as a custom event; the experiment's
+// metrics count them per variation. The demo request itself is simulated;
+// there is no backend form.
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('[data-cta="demo"]')) return;
-  showToast('Thanks! A Pulse specialist will be in touch (simulated).');
+  if (e.target.closest('[data-cta="demo"]')) {
+    track(METRICS.DEMO_REQUEST_CLICKED); // primary metric
+    showToast('Thanks! A Pulse specialist will be in touch (simulated).');
+  } else if (e.target.closest('[data-track="pricing"]')) {
+    track(METRICS.PRICING_PAGE_VIEWED); // secondary (guardrail) metric
+  }
 });
 
 // ---------- LaunchDarkly wiring ----------

@@ -139,6 +139,52 @@ All attribute values are case-sensitive. Use `≥` ("greater than or equal") wit
 `500`, not text. The default rule's percentage rollout buckets by context key, so each visitor
 always lands in the same bucket.
 
+#### Experiment: ROI calculator vs control (extra credit)
+
+**1. Create two metrics** (**Metrics → Create metric**, *LaunchDarkly hosted* if asked):
+
+| Setting | Primary metric | Secondary (guardrail) metric |
+|---|---|---|
+| Event kind | Custom | Custom |
+| Event key | `demo-request-clicked` | `pricing-page-viewed` |
+| Metric definition | Occurrence (Percent) | Occurrence (Percent) |
+| Analysis unit | `user` | `user` |
+| Success criteria | Higher is better | Higher is better |
+| Name | Demo requests | Pricing page views |
+
+The browser sends these events with `track()` ([static/js/marketing.js](static/js/marketing.js)):
+`demo-request-clicked` on every **Request a demo** button, and `pricing-page-viewed` on the
+**Pricing** link. The simulator sends the same events from the server SDK.
+
+**2. Add rule 5 to `landing-hero`**, after rule 4. This is the experiment's audience:
+
+| # | If (context kind `user`) | Serve |
+|---|---|---|
+| 5 | `country` **is one of** `US`, `GB`, `CA`, `AU` | `control` for now (the experiment takes over this rule) |
+
+LaunchDarkly recommends experimenting on a specific rule rather than the default rule. Because
+rules 1–4 and the individual targets come first, the audience is **SMB and mid-market visitors
+in English-speaking markets, in non-regulated industries, not from LinkedIn**. Enterprise buyers
+(rule 4) already get the ROI calculator; the open question is whether it helps everyone else.
+
+**3. Create the experiment** (**Create → Experiment**):
+
+| Setting | Value |
+|---|---|
+| Name | Landing hero: ROI calculator vs control |
+| Hypothesis | For SMB and mid-market visitors in English-speaking markets, the ROI-calculator hero increases demo requests compared with the current hero. |
+| Assignment method | LaunchDarkly flag: `landing-hero` |
+| Targeting rule | **Rule 5** (country is one of US, GB, CA, AU) |
+| Randomize by | `user` |
+| Audience allocation | 100% of the rule's contexts. Contexts outside the experiment are served `control` |
+| Variations split | `control` 50%, `roi-calculator` 50%, `social-proof` 0%. **Control:** `control` |
+| Metrics | `Demo requests` (**primary**), `Pricing page views` |
+| Statistical approach | **Frequentist**, significance level 0.05 (the default; LaunchDarkly recommends it for 1,000+ contexts) |
+| Attributes (Advanced) | Leave empty. Marketing visitors are **anonymous contexts**, and LaunchDarkly can't filter experiment results by anonymous contexts' attributes |
+
+Save, make sure the flag is **on**, and click **Start** on the experiment for the **Test**
+environment. Only events sent **after** the iteration starts are counted.
+
 ### 3.3 How the app talks to LaunchDarkly
 
 - **Browser:** [static/js/ld.js](static/js/ld.js) starts the JavaScript SDK
@@ -231,6 +277,10 @@ Stop the server with `Ctrl+C`.
 Each part is a "do X, watch Y" walkthrough. Keep the LaunchDarkly dashboard and the app side by
 side, with the **Demo controls** panel open.
 
+> Some steps run a script while the server keeps running. Open a **second terminal** in the
+> repo folder and **activate the virtual environment there too** (step 4.1) before running
+> `scripts/*.py`.
+
 ### 5.1 Release & Remediate (Part 1): `/app`
 
 **Scenario:** ABC wants to ship a new Account Health experience faster without risking quality.
@@ -275,7 +325,7 @@ decision visible.
 | 4 | **LinkedIn visitor** (US · Retail) | Social proof | Rule 3 | Social-channel audience |
 | 5 | **QA tester** (`qa-tester-01`, based in DE) | ROI calculator | Individual target | Individual targeting beats the DE rule, so QA can test the new hero |
 | 6 | **Sales demo** (`sales-demo`, Fintech) | ROI calculator | Individual target | Sales can demo it despite the compliance hold |
-| 7 | **Random visitor**, then click **↻ New random visitor** several times | Usually Control, sometimes ROI calculator | Default rule (or a rule, if the random attributes match one) | The 10% percentage rollout. A visitor keeps its bucket across reloads |
+| 7 | **Random visitor**, then click **↻ New random visitor** several times | Varies | Usually **Rule 5 · in experiment** once the experiment is running (section 5.3), otherwise whichever rule matches. The default rule's 10% rollout applies to countries no rule covers | Random visitors are randomized 50/50 into the experiment. A visitor keeps its variation across reloads |
 
 **Live targeting change:** with the **German startup visitor** selected, remove `DE` from rule 1
 in LaunchDarkly and save. Without a reload, the hero changes as the visitor falls through to the
@@ -283,7 +333,66 @@ default rollout.
 
 Try the ROI calculator's inputs too: the results update as you type.
 
-- 5.3 Experimentation: _Coming in Phase 4_
+### 5.3 Experimentation (extra credit): `/`
+
+**Scenario:** as the PM, you need evidence before making the ROI-calculator hero the default
+for everyone. The experiment runs on rule 5's audience (section 3.2) and measures demo requests
+(primary) and pricing page views (guardrail).
+
+> **The traffic is simulated.** A demo site has no real visitors, so
+> [scripts/simulate_traffic.py](scripts/simulate_traffic.py) sends simulated visitors through
+> the **real** Python SDK. LaunchDarkly evaluates the flag and randomizes each visitor exactly as
+> for a real page view, and conversions are sent with `track()`. The simulator's "true"
+> conversion rates are in the `RATES` table at the top of the script. The experiment's job is
+> to recover them from the data. Real clicks on the page are counted too.
+
+| # | Do | Watch |
+|---|---|---|
+| 1 | Set up both metrics, rule 5 and the experiment, and **start** the iteration (section 3.2) | The experiment shows as running |
+| 2 | On `/`, choose **Random visitor** and click **↻ New random visitor** until the panel says **Rule 5 · in experiment**. Click **Request a demo** | The event appears in the metric's recent events (and in **Live events**) after a short delay |
+| 3 | Run `python scripts/simulate_traffic.py` (about 2 minutes) | Progress every 500 visitors, then a summary: visitors per variation, how many were **in the experiment**, and the simulator's own conversion rates (overall and desktop / mobile) |
+| 4 | Open the experiment's **Results** after a few minutes | Exposures and conversions per variation, the lift, and whether the result is statistically significant |
+
+`python scripts/simulate_traffic.py --dry-run` previews the math without sending anything.
+`--visitors` and `--rate` change the size and speed. Each run uses fresh visitors, so running it
+again adds to the sample.
+
+#### Results & decision
+
+![Experiment results in LaunchDarkly: roi-calculator +28.35% demo requests, significant; pricing page views unchanged](docs/images/experiment-results.png)
+
+**Decision memo: Landing hero, ROI calculator vs control**
+
+| | |
+|---|---|
+| **Audience** | Rule 5: SMB and mid-market visitors in US/GB/CA/AU, non-regulated industries, not from LinkedIn |
+| **Sample** | 13,145 `user` contexts, split 50/50 (about 6.6k per arm). About two-thirds of the 20,000 simulated visitors; the rest matched rules 1–4 and were correctly kept out |
+| **Primary: Demo requests** | **+28.35%** relative lift for `roi-calculator`, 95% CI **[+7.87%, +48.84%]**. **Statistically significant** at α = 0.05 (frequentist) |
+| **Guardrail: Pricing page views** | +2.71%, 95% CI [−5.98%, +11.39%]. **No significant change**: the calculator doesn't pull attention away from pricing |
+
+**Decision: ship the ROI calculator to this audience.** Stop the experiment and serve
+`roi-calculator` on rule 5 (LaunchDarkly can ship the winning variation directly from the
+experiment). Keep `control` in the codebase until the flag is retired.
+
+**Why it's safe to act on:**
+- The whole confidence interval is above zero. Even the pessimistic end (+7.9%) is a
+  meaningful gain in demo requests.
+- The guardrail didn't move, so there's no hidden cost.
+- The rollout is a flag change, not a deploy, so it can be reversed instantly if real-world
+  numbers disagree.
+
+**Caveats and next steps:**
+- **Plan on the low end of the interval.** It's wide (+8% to +49%). Use +8–10%, not +28%, for
+  pipeline forecasts.
+- **Run longer with real traffic.** This sample was collected in 18 minutes of simulated
+  traffic. A real test should cover at least one or two full weeks to account for weekday and
+  weekend patterns, even if it reaches significance sooner.
+- **Expand the audience next.** Rules 1 and 2 hold DE/FR (localization) and regulated
+  industries (compliance review of the ROI claims) on `control`. Once those are cleared, the
+  same flag can extend the calculator to them, ideally as a new experiment.
+
+> Results come from **simulated** traffic. The simulator's true lift was about +34%
+> (3.97% → 5.31%). LaunchDarkly measured +28% from the data, well within its confidence interval.
 - 5.4 AI Configs: _Coming in Phase 5_
 
 ---
@@ -294,7 +403,7 @@ Try the ROI calculator's inputs too: the results update as you type.
 |---|---|
 | `Address already in use` or nothing loads on port 5000 (common on macOS, where AirPlay Receiver uses 5000) | Set `PORT=5050` in `.env`, restart, and open `http://localhost:5050`. |
 | `Missing .../data/accounts.json` on startup | Run `python scripts/seed_data.py`. |
-| `ModuleNotFoundError: No module named 'flask'` | Activate the virtual environment (step 4.1), then `pip install -r requirements.txt`. |
+| `ModuleNotFoundError: No module named 'flask'` (or `'ldclient'`, `'dotenv'`) | The virtual environment isn't active in **this** terminal. Activate it (step 4.1) in every new terminal, including the second one used for `watchdog.py` or `simulate_traffic.py`. Or run `.venv\Scripts\python` (Windows) / `.venv/bin/python` (macOS/Linux) directly. If it's active and the error persists, run `pip install -r requirements.txt`. |
 | `python` not found on macOS/Linux | Use `python3`. |
 | Demo panel shows **Not configured** | `LD_SDK_KEY` / `LD_CLIENT_SIDE_ID` is missing from `.env`. Add it and restart the server. |
 | Server SDK shows **Error: HTTP 401** | The SDK key is wrong or belongs to another environment. Copy it again from **Project settings → Environments**. |
@@ -307,6 +416,8 @@ Try the ROI calculator's inputs too: the results update as you type.
 | Demo panel shows `"Variation 1"` (etc.) and the hero never changes | The flag still has LaunchDarkly's placeholder **values**. Set them to `control`, `roi-calculator` and `social-proof` on the flag's Variations tab. Targeting stays attached to the same variations. |
 | A persona gets the "wrong" hero | Compare the panel's reason with the table in 5.2. Usually the rules are in a different order, a value has the wrong case, or `companySize` was entered as text instead of a number. |
 | Hero briefly shows the old version | Expected for up to 1 second while flags load (anti-flicker). Production would bootstrap flag values from the server instead. |
+| Simulator: "no visitors landed in the experiment" | Start the experiment iteration, make sure `landing-hero` is on, and check that rule 5 exists. |
+| Experiment results stay empty | Results take a few minutes to update. Only events sent **after** the iteration started count. Check that the metrics' event keys exactly match `demo-request-clicked` and `pricing-page-viewed`. |
 | Watchdog never fires | It needs at least 20 health requests in the last minute. Reload `/app` as a persona who gets v2 (e.g. Dana), and check that `health-score-v2-calc` is on. |
 
 ---
@@ -333,7 +444,8 @@ abc-pulse/
 ├── scripts/
 │   ├── seed_data.py     # Generates data/accounts.json (stdlib only)
 │   ├── kill-switch.sh   # Manual remediation: POST the flag trigger URL
-│   └── watchdog.py      # Automatic remediation: fire the trigger on an error spike
+│   ├── watchdog.py      # Automatic remediation: fire the trigger on an error spike
+│   └── simulate_traffic.py # Simulated visitors for the landing-hero experiment
 ├── static/
 │   ├── index.html       # Marketing site
 │   ├── app.html         # Pulse app

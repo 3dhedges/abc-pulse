@@ -25,8 +25,10 @@ LANDING_HERO = "landing-hero"
 # Extra credit, AI Configs: model and prompt for the account assistant.
 ACCOUNT_ASSISTANT = "account-assistant"
 
-# Experiment metric (custom conversion event) sent with track() on the demo CTA.
-METRIC_DEMO_REQUEST_CLICKED = "demo-request-clicked"
+# Experiment metrics: custom conversion events sent with track().
+# LD SETUP: Create a metric for each with exactly this event key (README 3.2).
+METRIC_DEMO_REQUEST_CLICKED = "demo-request-clicked"  # primary: "Request a demo" clicks
+METRIC_PRICING_PAGE_VIEWED = "pricing-page-viewed"  # secondary/guardrail: Pricing clicks
 
 # Value served when LaunchDarkly can't be reached, the SDK key is missing, or
 # the flag doesn't exist yet. Each fallback is the safe, existing experience,

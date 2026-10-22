@@ -137,9 +137,12 @@ visitor would have seen unlocalized copy.)*
 
 - Hypothesis: ROI-calculator hero increases demo requests.
 - Metric: `demo-request-clicked` (custom conversion, `track()` on CTA). Secondary: `pricing-page-viewed`.
-- Experiment on `landing-hero` default rule: 50/50 `control` vs `roi-calculator`.
+- Experiment on `landing-hero` **rule 5** (`country in [US, GB, CA, AU]`): 50/50 `control` vs
+  `roi-calculator`. *(Changed in Phase 4 from the default rule; LD recommends a specific rule.)*
 - `scripts/simulate_traffic.py` (Python server SDK): N anonymous visitors with random attributes,
-  evaluate flag, fire conversions at configurable per-variation rates (e.g. 4.0% vs 5.2%). Flush on exit.
+  evaluate flag, fire conversions at per-variation, per-device rates. Flushes every 500
+  visitors; paced. (LD can't slice results for anonymous contexts, so there's no device
+  analysis in LD.)
 - Note in README: individually targeted contexts are not in the experiment; traffic is **simulated**.
 - Deliverable: results screenshots + short decision memo in README.
 
@@ -175,7 +178,7 @@ visitor would have seen unlocalized copy.)*
 - [x] **Phase 1 — LD wiring:** SDK init (server + client), flag constants, fallbacks, persona switchers.
 - [x] **Phase 2 — Part 1:** health panel, listener, buggy v2 calc, `/api/health`, kill-switch, watchdog.
 - [x] **Phase 3 — Part 2:** marketing site, hero variants, contexts, document targeting setup.
-- [ ] **Phase 4 — Experiment:** `track()` events, metric, `simulate_traffic.py`, run it, capture results.
+- [x] **Phase 4 — Experiment:** `track()` events, metric, `simulate_traffic.py`, run it, capture results.
 - [ ] **Phase 5 — AI Config:** assistant endpoint, variations, tracking, mock provider.
 - [ ] **Phase 6 — Setup automation & integrations:** `setup_launchdarkly.py`, code-refs Action.
 - [ ] **Phase 7 — Polish:** full README, screenshots, fresh-clone test on a clean machine, video.

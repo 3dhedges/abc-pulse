@@ -42,9 +42,10 @@ ABC Company sells **Pulse**, a customer-success platform for B2B SaaS companies.
 |---|---|---|---|
 | `account-health-panel` | boolean | app (client-side) | Part 1 feature; change listener swaps old/new UI live |
 | `health-score-v2-calc` | boolean | app (server-only) | Deliberately buggy v2 scoring; its flag trigger is the kill switch (curl / watchdog) |
-| `landing-hero` | string (control / roi-calculator / social-proof) | marketing (client-side) | Part 2: individual targets + 4 ordered rules + 10% default rollout (README 3.2); experiment in Phase 4 |
+| `landing-hero` | string (control / roi-calculator / social-proof) | marketing (client-side) | Part 2: individual targets + 4 ordered rules + 10% default rollout; rule 5 (US/GB/CA/AU) = experiment audience (README 3.2) |
 | `account-assistant` | AI Config | app | Prompt/model variations by role |
-| `demo-request-clicked` | metric (custom conversion) | marketing | Experiment primary metric |
+| `demo-request-clicked` | metric (custom conversion) | marketing | Experiment primary metric (CTA clicks) |
+| `pricing-page-viewed` | metric (custom conversion) | marketing | Experiment secondary/guardrail metric (Pricing link) |
 
 ## Run
 ```
