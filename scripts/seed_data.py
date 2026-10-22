@@ -12,8 +12,16 @@ is coincidental.
 
 import json
 import random
+import sys
 from datetime import date, timedelta
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Use the app's scoring module, so the seeded healthScore always matches what
+# the server calculates with the v1 algorithm.
+sys.path.insert(0, str(REPO_ROOT))
+from scoring import clamp, health_score_v1, renewal_likelihood  # noqa: E402
 
 SEED = 42
 ACCOUNT_COUNT = 50
@@ -22,7 +30,7 @@ ACCOUNT_COUNT = 50
 # doesn't change from day to day.
 BASE_DATE = date(2026, 10, 24)
 
-OUTPUT_PATH = Path(__file__).resolve().parent.parent / "data" / "accounts.json"
+OUTPUT_PATH = REPO_ROOT / "data" / "accounts.json"
 
 NAME_PREFIXES = [
     "Northwind", "Bluefin", "Cobalt", "Harborline", "Juniper", "Lumenfield",
@@ -65,9 +73,6 @@ FEATURES = [
 ]
 
 
-def clamp(value, low, high):
-    """Limit value to the range [low, high]."""
-    return max(low, min(high, value))
 
 
 def make_names(rng, count):
@@ -98,44 +103,8 @@ def logins_trend(rng, base, vitality):
     return trend
 
 
-def health_score_v1(account):
-    """Current, trusted health-score algorithm (0-100).
-
-    Weighted blend of five signals:
-      30%  seat utilization
-      25%  average feature adoption
-      20%  NPS, mapped from -100..100 to 0..100
-      15%  support load (0 open tickets = full marks, 10+ = none)
-      10%  login momentum (last 7 days vs first 7 days of the 30-day trend)
-
-    In Phase 2 a deliberately buggy "v2" algorithm sits behind the
-    `health-score-v2-calc` flag and is compared against this one.
-    """
-    adoption = sum(account["featureAdoption"].values()) / len(FEATURES)
-    nps = (account["nps"] + 100) / 2
-    support = 100 - clamp(account["openTickets"], 0, 10) * 10
-
-    trend = account["loginsTrend30d"]
-    first, last = sum(trend[:7]) or 1, sum(trend[-7:])
-    momentum = clamp(50 + (last / first - 1) * 100, 0, 100)
-
-    score = (
-        0.30 * account["seatUtilization"]
-        + 0.25 * adoption
-        + 0.20 * nps
-        + 0.15 * support
-        + 0.10 * momentum
-    )
-    return round(clamp(score, 0, 100))
 
 
-def renewal_likelihood(score):
-    """Map a health score to a renewal-likelihood bucket."""
-    if score >= 70:
-        return "high"
-    if score >= 45:
-        return "medium"
-    return "low"
 
 
 def risk_drivers(account):

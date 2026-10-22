@@ -3,10 +3,16 @@
 Routes
     /                        marketing landing page (static/index.html)
     /app                     Pulse app for customer success managers (static/app.html)
-    GET /api/accounts        all customer accounts
-    GET /api/accounts/<id>   one account, or 404
-    GET /api/config          browser config: LaunchDarkly client-side ID + demo personas
-    GET /api/status          server-side LaunchDarkly SDK connection state
+    GET /api/accounts               all customer accounts
+    GET /api/accounts/<id>          one account, or 404
+    GET /api/accounts/<id>/health   health score (v1 or v2, per the health-score-v2-calc flag)
+    GET /api/health                 error rate of health calculations (watchdog signal)
+    GET /api/server-flags           server-evaluated flag values for the current persona
+    GET /api/config                 browser config: LaunchDarkly client-side ID + demo personas
+    GET /api/status                 server-side LaunchDarkly SDK connection state
+
+Requests from the Pulse app send an X-Persona header (the demo persona), so
+server-side flags are evaluated for the same context as in the browser.
 
 Run:  python app.py   (then open http://localhost:5000)
 """
@@ -18,7 +24,7 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, abort, jsonify, send_from_directory
+from flask import Flask, abort, jsonify, request, send_from_directory
 
 # Load .env before anything reads os.environ (including ld.py). If .env is
 # missing, this does nothing; the app still runs with defaults.
@@ -26,8 +32,12 @@ load_dotenv()
 
 import ld  # noqa: E402  (must come after load_dotenv)
 import personas  # noqa: E402
+import scoring  # noqa: E402
+from flags import HEALTH_SCORE_V2_CALC, SERVER_FLAGS  # noqa: E402
+from health_monitor import ErrorRateMonitor  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+log = logging.getLogger("abc_pulse")
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -53,6 +63,14 @@ ACCOUNTS = load_accounts()
 # Connect to LaunchDarkly once per process. Without LD_SDK_KEY this runs
 # offline and every flag uses its fallback value.
 ld.init_ld()
+
+# Tracks failed health-score calculations for /api/health.
+HEALTH_MONITOR = ErrorRateMonitor()
+
+
+def current_context():
+    """LaunchDarkly context for this request's persona (default: Dana)."""
+    return personas.context_for(request.headers.get("X-Persona"))
 
 
 @app.get("/")
@@ -80,6 +98,60 @@ def get_account(account_id):
     if account is None:
         abort(404, description=f"Account {account_id!r} not found")
     return jsonify(account)
+
+
+@app.get("/api/accounts/<account_id>/health")
+def get_account_health(account_id):
+    """Health score for one account, using the algorithm the flag selects.
+
+    `health-score-v2-calc` is evaluated on the server for the current persona,
+    so v2 can be released to beta testers first. The flag stays server-only:
+    the browser never needs it, so it isn't exposed to client-side SDKs.
+    """
+    account = ACCOUNTS.get(account_id)
+    if account is None:
+        abort(404, description=f"Account {account_id!r} not found")
+
+    use_v2 = ld.evaluate(HEALTH_SCORE_V2_CALC, current_context())
+    algorithm = "v2" if use_v2 else "v1"
+    try:
+        score = scoring.health_score_v2(account) if use_v2 else scoring.health_score_v1(account)
+    except Exception:
+        # Record the failure so /api/health (and the watchdog) can see it.
+        log.exception("Health score %s failed for %s", algorithm, account_id)
+        HEALTH_MONITOR.record(ok=False)
+        return jsonify(error="Health score calculation failed", algorithm=algorithm), 500
+
+    HEALTH_MONITOR.record(ok=True)
+    return jsonify(
+        accountId=account_id,
+        algorithm=algorithm,
+        healthScore=score,
+        renewalLikelihood=scoring.renewal_likelihood(score),
+        riskDrivers=account["riskDrivers"],
+    )
+
+
+@app.get("/api/health")
+def service_health():
+    """Error rate of health calculations over the last minute.
+
+    This is the signal a monitoring tool would alert on. scripts/watchdog.py
+    polls it and fires the LaunchDarkly trigger when it crosses a threshold.
+    """
+    stats = HEALTH_MONITOR.snapshot()
+    return jsonify(status="degraded" if stats["errors"] else "ok", **stats)
+
+
+@app.get("/api/server-flags")
+def server_flags():
+    """Values of server-only flags for the current persona.
+
+    The demo panel polls this to show (and react to) flags the browser SDK
+    can't see.
+    """
+    context = current_context()
+    return jsonify({key: ld.evaluate(key, context) for key in SERVER_FLAGS})
 
 
 @app.get("/api/config")

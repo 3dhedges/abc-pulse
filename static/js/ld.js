@@ -13,8 +13,10 @@ import { createClient, basicLogger } from '/static/vendor/launchdarkly/js-client
 
 // Flag keys: the browser's single source of truth (the server's is flags.py).
 // LD SETUP: Each flag must exist in your LaunchDarkly project with exactly this
-// key, and "SDKs using Client-side ID" must be checked in the flag's settings.
-// Otherwise the browser can't see the flag and uses the fallback.
+// key. For flags the browser evaluates (account-health-panel, landing-hero),
+// check "SDKs using Client-side ID" in the flag's settings, or the browser
+// can't see the flag and uses the fallback. health-score-v2-calc is
+// server-only: leave that box unchecked.
 export const FLAGS = {
   ACCOUNT_HEALTH_PANEL: 'account-health-panel',
   HEALTH_SCORE_V2_CALC: 'health-score-v2-calc',
@@ -31,6 +33,14 @@ export const FALLBACKS = {
 
 // Seconds to wait for flag data before rendering with fallbacks.
 const INIT_TIMEOUT_SECONDS = 5;
+
+// Server-only flags (e.g. health-score-v2-calc) aren't exposed to client-side
+// SDKs, so the browser can't stream them. Instead it polls their
+// server-evaluated values. In production you'd push these (SSE or WebSocket);
+// polling keeps the demo simple.
+const SERVER_FLAG_POLL_MS = 3000;
+const serverFlagValues = {}; // flag key -> last value from /api/server-flags
+let refreshServerFlags = async () => {};
 
 let client = null;
 let status = { state: 'starting', detail: 'Connecting to LaunchDarkly…' };
@@ -98,12 +108,42 @@ export async function identify(context) {
       console.warn('LaunchDarkly identify did not complete:', result);
     }
   }
+  // Server-side values depend on the persona too.
+  await refreshServerFlags();
   // Re-render every flag-dependent part of the page for the new context.
   notifyFlags(flagListeners.keys());
 }
 
+/**
+ * Track server-only flags by polling /api/server-flags.
+ *   keys:      flag keys to watch
+ *   headersFn: returns request headers identifying the current user (X-Persona)
+ * Listeners registered with onFlagChange() fire when a value changes, the same
+ * as for streamed flags.
+ */
+export function watchServerFlags(keys, headersFn) {
+  keys.forEach((key) => { serverFlagValues[key] = FALLBACKS[key]; });
+
+  refreshServerFlags = async () => {
+    try {
+      const res = await fetch('/api/server-flags', { headers: headersFn() });
+      if (!res.ok) return;
+      const values = await res.json();
+      const changed = keys.filter((key) => key in values && values[key] !== serverFlagValues[key]);
+      changed.forEach((key) => { serverFlagValues[key] = values[key]; });
+      notifyFlags(changed);
+    } catch {
+      // Server unreachable: keep the last known values.
+    }
+  };
+
+  refreshServerFlags();
+  setInterval(() => refreshServerFlags(), SERVER_FLAG_POLL_MS);
+}
+
 /** Current value of a flag for the current context, or its fallback. */
 export function variation(flagKey) {
+  if (flagKey in serverFlagValues) return serverFlagValues[flagKey];
   const fallback = FALLBACKS[flagKey];
   return client ? client.variation(flagKey, fallback) : fallback;
 }

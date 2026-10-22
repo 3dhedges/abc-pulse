@@ -170,7 +170,7 @@ External customer user (no beta).
 - [x] **Phase 0 — Scaffold:** repo layout, `.gitignore`, `.env.example`, `requirements.txt`,
       Flask app serving both pages, `seed_data.py`, README skeleton.
 - [x] **Phase 1 — LD wiring:** SDK init (server + client), flag constants, fallbacks, persona switchers.
-- [ ] **Phase 2 — Part 1:** health panel, listener, buggy v2 calc, `/api/health`, kill-switch, watchdog.
+- [x] **Phase 2 — Part 1:** health panel, listener, buggy v2 calc, `/api/health`, kill-switch, watchdog.
 - [ ] **Phase 3 — Part 2:** marketing site, hero variants, contexts, document targeting setup.
 - [ ] **Phase 4 — Experiment:** `track()` events, metric, `simulate_traffic.py`, run it, capture results.
 - [ ] **Phase 5 — AI Config:** assistant endpoint, variations, tracking, mock provider.

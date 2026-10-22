@@ -40,8 +40,8 @@ ABC Company sells **Pulse**, a customer-success platform for B2B SaaS companies.
 ## Flag / config keys
 | Key | Type | Surface | Purpose |
 |---|---|---|---|
-| `account-health-panel` | boolean | app | Part 1 feature; listener + trigger kill switch |
-| `health-score-v2-calc` | boolean | app | Deliberately buggy new scoring algorithm (remediation demo) |
+| `account-health-panel` | boolean | app (client-side) | Part 1 feature; change listener swaps old/new UI live |
+| `health-score-v2-calc` | boolean | app (server-only) | Deliberately buggy v2 scoring; its flag trigger is the kill switch (curl / watchdog) |
 | `landing-hero` | string (control / roi-calculator / social-proof) | marketing | Part 2 targeting + experiment |
 | `account-assistant` | AI Config | app | Prompt/model variations by role |
 | `demo-request-clicked` | metric (custom conversion) | marketing | Experiment primary metric |

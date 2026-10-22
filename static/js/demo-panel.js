@@ -8,7 +8,9 @@
 // Personas come from the server (/api/config, defined in personas.py), so
 // the browser and server always agree on each context.
 
-import { startLD, identify, variation, onFlagChange, onStatusChange } from './ld.js';
+import {
+  startLD, identify, variation, onFlagChange, onStatusChange, watchServerFlags,
+} from './ld.js';
 
 const STATUS_TEXT = {
   starting: 'Connecting',
@@ -73,7 +75,8 @@ function el(tag, className, text) {
 }
 
 // Build the panel's DOM and return the elements we update later.
-function buildPanel(personas, currentId, flags) {
+// serverFlags are shown with a "server" tag: their values come from the server.
+function buildPanel(personas, currentId, flags, serverFlags) {
   const panel = el('aside', 'demo-panel');
   panel.setAttribute('aria-label', 'Demo controls');
 
@@ -103,9 +106,15 @@ function buildPanel(personas, currentId, flags) {
 
   const flagList = el('dl', 'demo-list demo-flags');
   const flagValues = {};
-  for (const key of flags) {
+  for (const key of [...flags, ...serverFlags]) {
+    const name = el('dt', 'mono', key);
+    if (serverFlags.includes(key)) {
+      const tag = el('span', 'demo-tag', 'server');
+      tag.title = 'Evaluated on the server (not exposed to client-side SDKs)';
+      name.append(' ', tag);
+    }
     flagValues[key] = el('dd', 'mono');
-    flagList.append(el('dt', 'mono', key), flagValues[key]);
+    flagList.append(name, flagValues[key]);
   }
 
   body.append(note, label, desc, reroll, el('h4', '', 'Connection'), statusList,
@@ -136,18 +145,23 @@ function renderFlag(target, value) {
 /**
  * Start LaunchDarkly and the demo panel for this page.
  *   surface:         'marketing' or 'app' (which persona list to use)
- *   flags:           flag keys to show in the panel
+ *   flags:           client-side flag keys to show in the panel
+ *   serverFlags:     server-only flag keys, polled from /api/server-flags
  *   onPersonaChange: called with the persona at startup and on every switch
  * Returns once the persona is known. LaunchDarkly keeps connecting in the
  * background, so the page never waits on it to render.
  */
-export async function initDemoPanel({ surface, flags, onPersonaChange = () => {} }) {
+export async function initDemoPanel({ surface, flags, serverFlags = [], onPersonaChange = () => {} }) {
   const config = await fetch('/api/config').then((r) => r.json());
   const personas = config.personas[surface];
   const storageKey = `pulse.persona.${surface}`;
   let persona = personas.find((p) => p.id === storage.get(storageKey)) || personas[0];
 
-  const ui = buildPanel(personas, persona.id, flags);
+  const ui = buildPanel(personas, persona.id, flags, serverFlags);
+  if (serverFlags.length) {
+    // The server evaluates these for the current persona, sent as X-Persona.
+    watchServerFlags(serverFlags, () => ({ 'X-Persona': persona.id }));
+  }
 
   const showPersona = () => {
     ui.desc.textContent = describe(persona);
@@ -165,7 +179,7 @@ export async function initDemoPanel({ surface, flags, onPersonaChange = () => {}
   ui.toggle.addEventListener('click', () => setCollapsed(!ui.panel.classList.contains('collapsed')));
 
   // Live flag values.
-  for (const key of flags) {
+  for (const key of [...flags, ...serverFlags]) {
     renderFlag(ui.flagValues[key], variation(key));
     onFlagChange(key, (value) => renderFlag(ui.flagValues[key], value));
   }

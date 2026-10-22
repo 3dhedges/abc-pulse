@@ -1,12 +1,16 @@
 // Pulse app behavior (/app).
 //
-// Loads accounts from the API and lists them in a sortable, filterable table.
-// It also shows the plain usage-stats table for the selected account. This is
-// the existing "old code" path that users get when the `account-health-panel`
-// flag is off (wired in Phase 2).
+// Loads accounts from the API and lists them in a sortable, filterable table,
+// with details for the selected account.
+//
+// Feature flag `account-health-panel` picks the experience:
+//   off (old code): plain usage-stats table
+//   on  (new code): Health column + Account Health panel (static/js/health-panel.js)
+// A flag change listener switches between them live, with no page reload.
 
 import { initDemoPanel } from './demo-panel.js';
-import { FLAGS } from './ld.js';
+import { FLAGS, variation, onFlagChange } from './ld.js';
+import { fetchHealth, healthColumn, renderHealthPanel } from './health-panel.js';
 
 const state = {
   accounts: [],
@@ -14,7 +18,14 @@ const state = {
   selectedId: null,
   sort: { key: 'name', dir: 'asc' },
   filters: {}, // column key -> filter value ('' or missing means "any")
+  health: {}, // account id -> health result (new experience only)
+  healthLoadId: 0, // increments per reload, so stale responses are ignored
 };
+
+// Is the new Account Health experience released to the current user?
+function healthEnabled() {
+  return variation(FLAGS.ACCOUNT_HEALTH_PANEL) === true;
+}
 
 const money = new Intl.NumberFormat('en-US', {
   style: 'currency', currency: 'USD', maximumFractionDigits: 0,
@@ -122,11 +133,19 @@ const COLUMNS = [
   },
 ];
 
+// The Health column exists only in the new experience.
+const HEALTH_COLUMN = healthColumn((id) => state.health[id]);
+
+// Columns for the current flag value: Health goes right after Account.
+function activeColumns() {
+  return healthEnabled() ? [COLUMNS[0], HEALTH_COLUMN, ...COLUMNS.slice(1)] : COLUMNS;
+}
+
 // ---------- Filtering & sorting ----------
 
 // True if the account passes every active column filter.
 function matchesFilters(account) {
-  return COLUMNS.every((col) => {
+  return activeColumns().every((col) => {
     const value = state.filters[col.key];
     if (!value) return true;
     switch (col.filter.type) {
@@ -140,7 +159,7 @@ function matchesFilters(account) {
 
 // Compare two accounts by the current sort column and direction.
 function compareAccounts(a, b) {
-  const col = COLUMNS.find((c) => c.key === state.sort.key);
+  const col = activeColumns().find((c) => c.key === state.sort.key);
   const value = col.sortValue || ((x) => x[col.key]);
   const va = value(a);
   const vb = value(b);
@@ -194,7 +213,7 @@ function renderHeader() {
   const titleRow = el('tr');
   const filterRow = el('tr', 'filter-row');
 
-  for (const col of COLUMNS) {
+  for (const col of activeColumns()) {
     const th = el('th', col.num ? 'num' : '');
     th.dataset.key = col.key;
     th.scope = 'col';
@@ -260,9 +279,13 @@ function renderAccountList() {
     row.dataset.id = a.id;
     row.tabIndex = 0; // reachable by keyboard; Enter selects
     row.classList.toggle('selected', a.id === state.selectedId);
-    for (const col of COLUMNS) {
+    for (const col of activeColumns()) {
       const classes = [col.num ? 'num' : '', col.wrap ? 'wrap' : ''].join(' ').trim();
-      row.append(el('td', classes, col.cell(a)));
+      const td = el('td', classes);
+      // render() returns a node (e.g. the health pill); otherwise plain text.
+      if (col.render) td.append(col.render(a));
+      else td.textContent = col.cell(a);
+      row.append(td);
     }
     row.addEventListener('click', () => selectAccount(a.id, true));
     row.addEventListener('keydown', (e) => {
@@ -273,7 +296,7 @@ function renderAccountList() {
 
   if (!rows.length) {
     const empty = el('td', 'empty', 'No accounts match these filters.');
-    empty.colSpan = COLUMNS.length;
+    empty.colSpan = activeColumns().length;
     const tr = el('tr', 'empty-row');
     tr.append(empty);
     tbody.append(tr);
@@ -287,7 +310,7 @@ function renderAccountList() {
 
 // ---------- Account detail ----------
 
-// Plain usage-stats table: the pre-flag experience for account details.
+// OLD CODE: plain usage-stats table, shown when `account-health-panel` is off.
 function renderUsageStats(account) {
   const adoption = Object.values(account.featureAdoption);
   const avgAdoption = Math.round(adoption.reduce((s, v) => s + v, 0) / adoption.length);
@@ -317,6 +340,74 @@ function renderUsageStats(account) {
   document.getElementById('usage-stats').replaceChildren(el('h3', 'muted', 'Usage stats'), table);
 }
 
+// Show the selected account's details in whichever experience the flag selects.
+function renderDetail() {
+  const account = state.accounts.find((a) => a.id === state.selectedId);
+  if (!account) return;
+  const slot = document.getElementById('health-panel-slot');
+  const usage = document.getElementById('usage-stats');
+  const showNew = healthEnabled();
+
+  slot.hidden = !showNew;
+  usage.hidden = showNew;
+  if (showNew) {
+    renderHealthPanel(slot, account, state.health[account.id] || { status: 'loading' }, { formatDate, money });
+  } else {
+    renderUsageStats(account);
+  }
+}
+
+// ---------- Health scores (new experience) ----------
+
+// Fetch every account's health score in parallel, then re-render. Runs when
+// the panel is released and whenever the scoring flag changes.
+async function loadAllHealth() {
+  const loadId = ++state.healthLoadId;
+  state.health = {};
+  renderAccountList();
+  renderDetail();
+
+  const results = await Promise.all(state.accounts.map((a) => fetchHealth(api, a.id)));
+  if (loadId !== state.healthLoadId) return; // a newer reload started; drop these
+  state.accounts.forEach((a, i) => { state.health[a.id] = results[i]; });
+  renderAccountList();
+  renderDetail();
+}
+
+// Refresh just the selected account's score (fresh data when a user opens an account).
+async function refreshSelectedHealth() {
+  const id = state.selectedId;
+  const loadId = state.healthLoadId;
+  const result = await fetchHealth(api, id);
+  if (loadId !== state.healthLoadId) return;
+  state.health[id] = result;
+  renderAccountList();
+  renderDetail();
+}
+
+// The flag LISTENERS: LaunchDarkly pushes a change, and the page switches
+// between the old and new experience instantly, with no reload.
+function onHealthPanelFlagChange() {
+  if (!state.accounts.length) return; // init() renders once accounts load
+  if (!healthEnabled()) {
+    // Rolled back: drop health-only sort and filter state.
+    delete state.filters.health;
+    if (state.sort.key === 'health') state.sort = { key: 'name', dir: 'asc' };
+  }
+  renderHeader();
+  renderAccountList();
+  renderDetail();
+  if (healthEnabled() && !Object.keys(state.health).length) loadAllHealth();
+}
+
+let lastScoringValue = variation(FLAGS.HEALTH_SCORE_V2_CALC); // starts at the fallback
+function onScoringFlagChange(useV2) {
+  // v1 <-> v2 changed on the server (e.g. the trigger fired): rescore.
+  if (useV2 === lastScoringValue) return; // listeners also fire on persona switches
+  lastScoringValue = useV2;
+  if (state.accounts.length && healthEnabled()) loadAllHealth();
+}
+
 // Highlight the chosen row and show that account's details. On narrow
 // screens the detail panel sits below the list, so scroll it into view.
 function selectAccount(id, fromUser) {
@@ -329,7 +420,8 @@ function selectAccount(id, fromUser) {
   const plan = document.getElementById('detail-plan');
   plan.textContent = account.plan;
   plan.hidden = false;
-  renderUsageStats(account);
+  renderDetail();
+  if (fromUser && healthEnabled()) refreshSelectedHealth();
 
   if (fromUser && narrowScreen.matches) {
     document.getElementById('account-detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -338,7 +430,9 @@ function selectAccount(id, fromUser) {
 
 // Show a load error in the detail panel.
 function showError(message) {
-  document.getElementById('usage-stats').replaceChildren(el('p', 'error', message));
+  const usage = document.getElementById('usage-stats');
+  usage.hidden = false;
+  usage.replaceChildren(el('p', 'error', message));
 }
 
 // Call the API as the current persona. The server builds the same
@@ -358,10 +452,14 @@ function onPersonaChange(persona) {
 // Start the demo panel and LaunchDarkly, fetch accounts, build the table,
 // and select the first account.
 async function init() {
+  onFlagChange(FLAGS.ACCOUNT_HEALTH_PANEL, onHealthPanelFlagChange);
+  onFlagChange(FLAGS.HEALTH_SCORE_V2_CALC, onScoringFlagChange);
+
   try {
     await initDemoPanel({
       surface: 'app',
-      flags: [FLAGS.ACCOUNT_HEALTH_PANEL, FLAGS.HEALTH_SCORE_V2_CALC],
+      flags: [FLAGS.ACCOUNT_HEALTH_PANEL],
+      serverFlags: [FLAGS.HEALTH_SCORE_V2_CALC], // evaluated on the server only
       onPersonaChange,
     });
   } catch (err) {
@@ -382,6 +480,7 @@ async function init() {
   renderAccountList();
   const first = visibleAccounts()[0];
   if (first) selectAccount(first.id, false);
+  if (healthEnabled()) loadAllHealth();
 }
 
 init();

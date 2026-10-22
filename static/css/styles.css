@@ -463,6 +463,82 @@ table.kv td { text-align: right; font-variant-numeric: tabular-nums; }
   border: 1px solid var(--line);
 }
 
+/* ---------- Account Health (new experience, behind account-health-panel) ---------- */
+
+.score-pill {
+  display: inline-block;
+  min-width: 34px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.score-good { background: #dcf5ea; color: var(--good); }
+.score-warn { background: #fdf0d9; color: var(--warn); }
+.score-bad { background: #fde3e6; color: var(--bad); }
+.score-error { background: var(--bad); color: #fff; }
+
+.pill-new { background: var(--brand-soft); color: var(--brand); border-color: transparent; }
+
+.health-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.health-head h3 { margin: 0; font-size: 16px; }
+.health-algo { margin-left: auto; }
+
+.health-summary {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.health-summary .error { flex: 1; margin: 0; }
+.health-outlook { display: grid; gap: 4px; }
+
+.gauge { width: 112px; height: 112px; flex: none; }
+.gauge circle { fill: none; stroke-width: 11; }
+.gauge-track { stroke: var(--line); }
+.gauge-value { stroke: currentColor; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+.gauge-good { color: var(--good); }
+.gauge-warn { color: var(--warn); }
+.gauge-bad { color: var(--bad); }
+.gauge-label { font-size: 30px; font-weight: 800; fill: var(--ink); text-anchor: middle; dominant-baseline: middle; }
+.gauge-sub { font-size: 11px; fill: var(--ink-soft); text-anchor: middle; }
+
+.renewal {
+  justify-self: start;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: capitalize;
+}
+.renewal-high { background: #dcf5ea; color: var(--good); }
+.renewal-medium { background: #fdf0d9; color: var(--warn); }
+.renewal-low { background: #fde3e6; color: var(--bad); }
+
+.health-section { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+.health-section h4 { margin: 0 0 8px; font-size: 13px; color: var(--ink-soft); font-weight: 600; }
+
+.bars {
+  display: grid;
+  grid-template-columns: auto minmax(60px, 1fr) 3.2em;
+  gap: 6px 10px;
+  align-items: center;
+  font-size: 13px;
+}
+.bar { height: 8px; background: var(--bg-muted); border-radius: 999px; overflow: hidden; }
+.bar-fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--accent)); border-radius: inherit; }
+.bar-value { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+
+.sparkline { width: 100%; height: 56px; display: block; }
+.sparkline-line { fill: none; stroke: var(--brand); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.sparkline-area { fill: var(--brand-soft); }
+
+.risk-list { margin: 0; padding-left: 18px; font-size: 14px; }
+.risk-list li { margin-bottom: 4px; }
+
 /* ---------- Demo controls panel (not part of the product) ---------- */
 
 .demo-panel {
@@ -519,6 +595,14 @@ table.kv td { text-align: right; font-variant-numeric: tabular-nums; }
 .demo-list dt { color: #a9a6c4; }
 .demo-list dd { margin: 0; text-align: right; }
 .mono { font-family: ui-monospace, Consolas, "Courier New", monospace; font-size: 12px; }
+.demo-tag {
+  font-family: var(--font);
+  font-size: 10px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: #3a3760;
+  color: #c9c6e0;
+}
 
 .dot {
   display: inline-block;

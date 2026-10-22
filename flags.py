@@ -14,7 +14,8 @@ manual steps in README.md.
 ACCOUNT_HEALTH_PANEL = "account-health-panel"
 
 # Part 1, Remediation (boolean): switches to a deliberately buggy v2 scoring
-# algorithm, so we can show a bad release being caught and killed.
+# algorithm, so we can show a bad release being caught and killed. Its flag
+# trigger (LD_TRIGGER_URL) turns it off. Server-side only.
 HEALTH_SCORE_V2_CALC = "health-score-v2-calc"
 
 # Part 2, Target + Experiment (string): landing-page hero variant on /.
@@ -35,3 +36,7 @@ FALLBACKS = {
     HEALTH_SCORE_V2_CALC: False,
     LANDING_HERO: "control",
 }
+
+# Flags evaluated only on the server. They're NOT made available to
+# client-side SDKs; the browser reads their values from /api/server-flags.
+SERVER_FLAGS = [HEALTH_SCORE_V2_CALC]
