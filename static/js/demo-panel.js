@@ -9,7 +9,7 @@
 // the browser and server always agree on each context.
 
 import {
-  startLD, identify, variation, onFlagChange, onStatusChange, watchServerFlags,
+  startLD, identify, variation, variationDetail, onFlagChange, onStatusChange, watchServerFlags,
 } from './ld.js';
 
 const STATUS_TEXT = {
@@ -113,7 +113,8 @@ function buildPanel(personas, currentId, flags, serverFlags) {
       tag.title = 'Evaluated on the server (not exposed to client-side SDKs)';
       name.append(' ', tag);
     }
-    flagValues[key] = el('dd', 'mono');
+    flagValues[key] = el('dd');
+    flagValues[key].append(el('span', 'demo-value mono'), el('span', 'demo-reason'));
     flagList.append(name, flagValues[key]);
   }
 
@@ -131,15 +132,38 @@ function renderStatus(target, status) {
   target.title = status.detail || '';
 }
 
-// Show a flag's value, and briefly highlight it when it changes.
-function renderFlag(target, value) {
-  const text = JSON.stringify(value);
-  if (target.textContent && target.textContent !== text) {
-    target.classList.remove('flash');
-    void target.offsetWidth; // restart the animation
-    target.classList.add('flash');
+// Plain-English evaluation reason: why this context got this value.
+// Rule numbers are 1-based, matching the rule order in the LaunchDarkly UI.
+function reasonText(reason) {
+  let text;
+  switch (reason.kind) {
+    case 'TARGET_MATCH': text = 'Individual target'; break;
+    case 'RULE_MATCH': text = `Rule ${reason.ruleIndex + 1}`; break;
+    case 'FALLTHROUGH': text = 'Default rule'; break;
+    case 'OFF': text = 'Flag off'; break;
+    case 'PREREQUISITE_FAILED': text = `Prerequisite ${reason.prerequisiteKey} not met`; break;
+    case 'FALLBACK': text = 'Fallback (not configured)'; break;
+    case 'ERROR':
+      text = reason.errorKind === 'FLAG_NOT_FOUND'
+        ? 'Fallback (flag not found)'
+        : `Fallback (${(reason.errorKind || 'error').toLowerCase().replace(/_/g, ' ')})`;
+      break;
+    default: text = reason.kind || '';
   }
-  target.textContent = text;
+  return reason.inExperiment ? `${text} · in experiment` : text;
+}
+
+// Show a flag's value and reason, and briefly highlight the value when it changes.
+function renderFlag(target, value, reason) {
+  const text = JSON.stringify(value);
+  const valueEl = target.querySelector('.demo-value');
+  if (valueEl.textContent && valueEl.textContent !== text) {
+    valueEl.classList.remove('flash');
+    void valueEl.offsetWidth; // restart the animation
+    valueEl.classList.add('flash');
+  }
+  valueEl.textContent = text;
+  target.querySelector('.demo-reason').textContent = reason;
 }
 
 /**
@@ -175,13 +199,24 @@ export async function initDemoPanel({ surface, flags, serverFlags = [], onPerson
     ui.toggle.setAttribute('aria-expanded', String(!collapsed));
     storage.set('pulse.demoPanelCollapsed', collapsed);
   };
-  setCollapsed(Boolean(storage.get('pulse.demoPanelCollapsed')));
+  // Default: collapsed on phones (it would cover most of the page), open elsewhere.
+  const saved = storage.get('pulse.demoPanelCollapsed');
+  setCollapsed(saved ?? window.matchMedia('(max-width: 700px)').matches);
   ui.toggle.addEventListener('click', () => setCollapsed(!ui.panel.classList.contains('collapsed')));
 
-  // Live flag values.
+  // Live flag values, with the reason for client-side flags. The browser
+  // can't see server-only flags' reasons, so those just say "Server".
+  const showFlag = (key) => {
+    if (serverFlags.includes(key)) {
+      renderFlag(ui.flagValues[key], variation(key), 'Server-evaluated');
+    } else {
+      const { value, reason } = variationDetail(key);
+      renderFlag(ui.flagValues[key], value, reasonText(reason));
+    }
+  };
   for (const key of [...flags, ...serverFlags]) {
-    renderFlag(ui.flagValues[key], variation(key));
-    onFlagChange(key, (value) => renderFlag(ui.flagValues[key], value));
+    showFlag(key);
+    onFlagChange(key, () => showFlag(key));
   }
 
   // Connection status: browser SDK live, server SDK fetched from the API.

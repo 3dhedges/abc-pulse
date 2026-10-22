@@ -22,8 +22,9 @@ from ldclient import Context
 # and sales demo are known internal people, so they're regular contexts that
 # can be picked by key for individual targeting.
 #
-# Attributes used by targeting rules: industry, companySize, country.
-# referrer and device are extra attributes for segmenting results.
+# Attributes used by landing-hero targeting rules: country, industry,
+# referrer, companySize (see README section 3.2). device is an extra
+# attribute for segmenting experiment results.
 # ---------------------------------------------------------------------------
 MARKETING_PERSONAS = [
     {
@@ -68,6 +69,21 @@ MARKETING_PERSONAS = [
             "companySize": 40,
             "country": "DE",
             "referrer": "organic",
+            "device": "mobile",
+        },
+    },
+    {
+        "id": "linkedin-visitor",
+        "label": "LinkedIn visitor",
+        "description": "US · Retail · 120 employees · from LinkedIn",
+        "context": {
+            "kind": "user",
+            "key": "visitor-linkedin-retail",
+            "anonymous": True,
+            "industry": "Retail",
+            "companySize": 120,
+            "country": "US",
+            "referrer": "linkedin",
             "device": "mobile",
         },
     },

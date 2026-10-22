@@ -116,15 +116,18 @@ External customer user (no beta).
 
 ## 6. Part 2 — Target (`/`)
 
-**Flag `landing-hero` (string):** `control` · `roi-calculator` · `social-proof` (optional)
+**Flag `landing-hero` (string):** `control` · `roi-calculator` · `social-proof`
 
 **Individual targeting:** `qa-tester-01`, `sales-demo` → `roi-calculator`
 
-**Rules (document the business reason for each in README):**
-1. `companySize >= 500` → `roi-calculator` (enterprise buyers care about ROI)
+**Rules (document the business reason for each in README).** Restrictions go first, because the
+first matching rule wins. *(Reordered in Phase 3. With `companySize` first, a German enterprise
+visitor would have seen unlocalized copy.)*
+1. `country in [DE, FR]` → `control` (localization not ready)
 2. `industry in [Fintech, Healthcare]` → `control` (compliance review of copy pending)
-3. `country in [DE, FR]` → `control` (localization not ready)
-4. Default rule: percentage rollout (e.g. 10% `roi-calculator`) — limit blast radius at 40k/day
+3. `referrer in [linkedin]` → `social-proof` (peer validation for social traffic)
+4. `companySize >= 500` → `roi-calculator` (enterprise buyers care about ROI)
+5. Default rule: percentage rollout (10% `roi-calculator`) — limit blast radius at 40k/day
 
 **Done when:** switching personas changes the hero live and each rule/target is demonstrable.
 
@@ -171,7 +174,7 @@ External customer user (no beta).
       Flask app serving both pages, `seed_data.py`, README skeleton.
 - [x] **Phase 1 — LD wiring:** SDK init (server + client), flag constants, fallbacks, persona switchers.
 - [x] **Phase 2 — Part 1:** health panel, listener, buggy v2 calc, `/api/health`, kill-switch, watchdog.
-- [ ] **Phase 3 — Part 2:** marketing site, hero variants, contexts, document targeting setup.
+- [x] **Phase 3 — Part 2:** marketing site, hero variants, contexts, document targeting setup.
 - [ ] **Phase 4 — Experiment:** `track()` events, metric, `simulate_traffic.py`, run it, capture results.
 - [ ] **Phase 5 — AI Config:** assistant endpoint, variations, tracking, mock provider.
 - [ ] **Phase 6 — Setup automation & integrations:** `setup_launchdarkly.py`, code-refs Action.

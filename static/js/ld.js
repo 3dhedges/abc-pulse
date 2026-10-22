@@ -76,6 +76,9 @@ export async function startLD(clientSideId, context) {
     // Keep a live streaming connection so flag changes reach the page
     // instantly. This is what makes release and rollback work without a reload.
     streaming: true,
+    // Include the evaluation reason (individual target, which rule, default
+    // rule, ...) so the demo panel can show WHY a visitor got a variation.
+    withReasons: true,
     logger: basicLogger({ level: 'warn' }),
   });
 
@@ -146,6 +149,18 @@ export function variation(flagKey) {
   if (flagKey in serverFlagValues) return serverFlagValues[flagKey];
   const fallback = FALLBACKS[flagKey];
   return client ? client.variation(flagKey, fallback) : fallback;
+}
+
+/**
+ * Value plus the reason LaunchDarkly chose it: { value, reason }.
+ * reason.kind is TARGET_MATCH, RULE_MATCH (with ruleIndex), FALLTHROUGH (the
+ * default rule), OFF, or ERROR. Without a client, kind is FALLBACK.
+ */
+export function variationDetail(flagKey) {
+  const fallback = FALLBACKS[flagKey];
+  if (!client) return { value: fallback, reason: { kind: 'FALLBACK' } };
+  const detail = client.variationDetail(flagKey, fallback);
+  return { value: detail.value, reason: detail.reason || { kind: 'UNKNOWN' } };
 }
 
 /** Run callback(newValue) whenever this flag's value may have changed. */

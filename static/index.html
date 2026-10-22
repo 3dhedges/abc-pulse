@@ -23,11 +23,19 @@
 
   <main>
     <!--
-      Hero section. This is the "control" hero.
-      Later phases put this section behind the `landing-hero` flag, which
-      swaps in other variants (e.g. an ROI calculator) by targeting rule.
+      Hero section, behind the `landing-hero` flag (string). The markup below
+      is the "control" variant: what loads first, and the fallback whenever
+      LaunchDarkly is unavailable. marketing.js swaps in the other variants
+      from the <template>s below, based on the visitor's targeting.
+
+      hero-pending hides the hero briefly until flags arrive, so targeted
+      visitors don't see "control" flash first. CSS reveals it after 1.5s
+      regardless, so the hero can never stay hidden.
+
+      Every variant's main call to action has data-cta="demo"; that click is
+      the experiment's conversion event.
     -->
-    <section class="hero" id="hero">
+    <section class="hero hero-pending" id="hero" data-variant="control">
       <div class="container">
         <span class="eyebrow">Customer success platform</span>
         <h1>Know who will renew before renewal season.</h1>
@@ -36,12 +44,72 @@
           into one health score, so your CS team can act on churn risk weeks earlier.
         </p>
         <div class="hero-actions">
-          <!-- This CTA becomes the experiment's primary conversion event in a later phase. -->
-          <button class="btn btn-primary" id="demo-cta" type="button">Request a demo</button>
+          <button class="btn btn-primary" data-cta="demo" type="button">Request a demo</button>
           <a class="btn btn-secondary" href="#features">See how it works</a>
         </div>
       </div>
     </section>
+
+    <!-- Variant "roi-calculator": for buyers who need a business case. -->
+    <template id="hero-roi-calculator">
+      <div class="container hero-split">
+        <div>
+          <span class="eyebrow">ROI calculator</span>
+          <h1>See what churn is costing you.</h1>
+          <p class="lede">
+            Plug in your numbers. Pulse customers spot at-risk renewals weeks earlier,
+            so fewer of them churn.
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" data-cta="demo" type="button">Request a demo</button>
+            <a class="btn btn-secondary" href="#features">See how it works</a>
+          </div>
+        </div>
+        <form class="card roi-card" data-roi>
+          <label>Customer accounts
+            <input class="filter-input" type="number" name="accounts" value="200" min="1" step="1">
+          </label>
+          <label>Average ARR per account (USD)
+            <input class="filter-input" type="number" name="arr" value="50000" min="0" step="1000">
+          </label>
+          <label>Annual churn rate (%)
+            <input class="filter-input" type="number" name="churn" value="12" min="0" max="100" step="0.5">
+          </label>
+          <dl class="roi-results">
+            <dt>Revenue lost to churn each year</dt>
+            <dd data-out="lost">$1,200,000</dd>
+            <dt>Revenue Pulse could save each year*</dt>
+            <dd data-out="saved" class="roi-saved">$240,000</dd>
+          </dl>
+          <p class="fine-print">*Illustrative estimate assuming Pulse reduces churn by 20%. Not a guarantee.</p>
+        </form>
+      </div>
+    </template>
+
+    <!-- Variant "social-proof": peer validation for visitors from social channels. Figures are fictional. -->
+    <template id="hero-social-proof">
+      <div class="container">
+        <span class="eyebrow">Trusted by 300+ SaaS companies</span>
+        <h1>CS teams renew more with Pulse.</h1>
+        <ul class="proof-stats">
+          <li><strong>+9 pts</strong><span>net revenue retention</span></li>
+          <li><strong>6 weeks</strong><span>earlier warning on at-risk renewals</span></li>
+          <li><strong>40%</strong><span>less time preparing QBRs</span></li>
+        </ul>
+        <figure class="testimonial">
+          <blockquote>
+            “Pulse flagged three at-risk renewals a full quarter before they came due.
+            We kept all three.”
+          </blockquote>
+          <figcaption>Jordan Ellis, VP Customer Success, Copperleaf</figcaption>
+        </figure>
+        <div class="hero-actions">
+          <button class="btn btn-primary" data-cta="demo" type="button">Request a demo</button>
+          <a class="btn btn-secondary" href="#features">See how it works</a>
+        </div>
+        <p class="fine-print">Customer figures and quotes are fictional, for this demo.</p>
+      </div>
+    </template>
 
     <!--
       Customer logo wall. Each name is styled as a fake wordmark with CSS only

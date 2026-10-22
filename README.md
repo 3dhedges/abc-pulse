@@ -61,7 +61,6 @@ existing, safe experience). Connect it to see flags, targeting, and live updates
 
 Create these flags in your project (**Flags → Create flag**) with **exactly** these keys.
 Automated setup with `scripts/setup_launchdarkly.py` is coming in Phase 6.
-`landing-hero` (Part 2) is added in Phase 3.
 
 > **Client-side availability matters.** Anything the browser can read, anyone with your
 > (public) client-side ID can read. So expose a flag to client-side SDKs only if the browser
@@ -110,6 +109,36 @@ WebSocket). The client-side flag above uses the SDK's real streaming listener.
 > Without triggers, you can still demo the same failure and recovery by turning the flag off
 > in the dashboard. `watchdog.py --dry-run` still detects the error spike.
 
+#### `landing-hero`: the marketing-site hero (Part 2)
+
+| Setting | Value |
+|---|---|
+| Name / key | Landing hero / `landing-hero` |
+| Type | **String**, with three variations whose **values** are exactly `control`, `roi-calculator`, `social-proof`. The names can be anything. LaunchDarkly pre-fills new string variations with placeholder values like "Variation 1"; replace them, or the page won't recognize the value and will show `control` |
+| Temporary or permanent | **Temporary.** Roll out the winning variant, then remove the flag |
+| Client-side availability | ✅ **SDKs using Client-side ID** (the browser renders the hero) |
+| Variation served when off | `control` |
+
+**Individual targeting:** serve `roi-calculator` to the `user` contexts `qa-tester-01` and
+`sales-demo`. Individual targets are checked **before** any rule. That lets QA and Sales preview
+the new hero even when their attributes would otherwise hold them on `control`.
+
+**Rules: add them in this order.** LaunchDarkly serves the **first** rule that matches, so
+restrictions come first. An opportunity rule (like rule 4) can then never override a compliance or
+localization hold.
+
+| # | If (context kind `user`) | Serve | Business reason |
+|---|---|---|---|
+| 1 | `country` **is one of** `DE`, `FR` | `control` | Localization isn't ready, so non-English markets keep the current page |
+| 2 | `industry` **is one of** `Fintech`, `Healthcare` | `control` | The new copy makes ROI claims that compliance hasn't approved for regulated industries |
+| 3 | `referrer` **is one of** `linkedin` | `social-proof` | Visitors from social channels respond best to peer validation |
+| 4 | `companySize` **≥** `500` (number) | `roi-calculator` | Enterprise buyers need a business case for budget approval |
+| Default | **Percentage rollout:** `roi-calculator` 10%, `control` 90% | | About 40,000 visitors a day: limit the blast radius while the new hero proves itself |
+
+All attribute values are case-sensitive. Use `≥` ("greater than or equal") with the number
+`500`, not text. The default rule's percentage rollout buckets by context key, so each visitor
+always lands in the same bucket.
+
 ### 3.3 How the app talks to LaunchDarkly
 
 - **Browser:** [static/js/ld.js](static/js/ld.js) starts the JavaScript SDK
@@ -137,8 +166,9 @@ the product**. It stands in for real visitors and logged-in users:
   live. Choose **Random visitor**, then **↻ New random visitor**, to see percentage rollouts
   bucket different visitors.
 - **Connection:** status of the browser and server SDKs. Hover over a status for details.
-- **Flags (live):** the current value of each flag on this page. A value flashes when it
-  changes in LaunchDarkly.
+- **Flags (live):** the current value of each flag on this page, plus the **reason**
+  LaunchDarkly gave for it (e.g. *Individual target*, *Rule 2*, *Default rule*, *Flag off*).
+  A value flashes when it changes. Server-only flags are tagged `server`.
 
 Click the panel's title to collapse it.
 
@@ -225,7 +255,34 @@ webhook calls the LaunchDarkly trigger URL. Nobody has to be awake for the rollb
 `python scripts/watchdog.py --help` lists the threshold, minimum-request, and interval options.
 `--dry-run` reports a breach without firing.
 
-- 5.2 Target: _Coming in Phase 3_
+### 5.2 Target (Part 2): `/`
+
+**Scenario:** several teams are revamping the landing page, which gets about 40,000 visitors a day.
+This team owns the **hero**. They want to show each audience the hero that fits them, keep
+restricted audiences on the current page, and limit everyone else's exposure.
+
+**Before you start:** `landing-hero` is set up as in section 3.2, and the flag is **on**.
+
+Under **Flags (live)**, the demo panel shows each flag's value **and the reason** LaunchDarkly
+returned for it (*Individual target*, *Rule N*, *Default rule*). That makes every targeting
+decision visible.
+
+| # | Do: pick persona | Watch: hero | Panel reason | Why |
+|---|---|---|---|---|
+| 1 | **Enterprise SaaS visitor** (US · SaaS · 2,000 employees) | ROI calculator | Rule 4 | Enterprise buyer, no restrictions |
+| 2 | **Mid-market fintech visitor** (US · Fintech · from LinkedIn) | Control | Rule 2 | Matches rule 2 *and* rule 3. The first match wins, so compliance beats channel |
+| 3 | **German startup visitor** (DE) | Control | Rule 1 | Localization hold |
+| 4 | **LinkedIn visitor** (US · Retail) | Social proof | Rule 3 | Social-channel audience |
+| 5 | **QA tester** (`qa-tester-01`, based in DE) | ROI calculator | Individual target | Individual targeting beats the DE rule, so QA can test the new hero |
+| 6 | **Sales demo** (`sales-demo`, Fintech) | ROI calculator | Individual target | Sales can demo it despite the compliance hold |
+| 7 | **Random visitor**, then click **↻ New random visitor** several times | Usually Control, sometimes ROI calculator | Default rule (or a rule, if the random attributes match one) | The 10% percentage rollout. A visitor keeps its bucket across reloads |
+
+**Live targeting change:** with the **German startup visitor** selected, remove `DE` from rule 1
+in LaunchDarkly and save. Without a reload, the hero changes as the visitor falls through to the
+default rollout.
+
+Try the ROI calculator's inputs too: the results update as you type.
+
 - 5.3 Experimentation: _Coming in Phase 4_
 - 5.4 AI Configs: _Coming in Phase 5_
 
@@ -247,6 +304,9 @@ webhook calls the LaunchDarkly trigger URL. Nobody has to be awake for the rollb
 | `kill-switch.sh`: `LD_TRIGGER_URL is not set` | Add the trigger URL to `.env` (section 3.2). |
 | Trigger call returns HTTP 404 | The trigger URL was reset or the trigger was deleted. Create or reset it and update `.env`. |
 | `bash: ./scripts/kill-switch.sh: Permission denied` | Run `bash scripts/kill-switch.sh`, or `chmod +x scripts/kill-switch.sh`. |
+| Demo panel shows `"Variation 1"` (etc.) and the hero never changes | The flag still has LaunchDarkly's placeholder **values**. Set them to `control`, `roi-calculator` and `social-proof` on the flag's Variations tab. Targeting stays attached to the same variations. |
+| A persona gets the "wrong" hero | Compare the panel's reason with the table in 5.2. Usually the rules are in a different order, a value has the wrong case, or `companySize` was entered as text instead of a number. |
+| Hero briefly shows the old version | Expected for up to 1 second while flags load (anti-flicker). Production would bootstrap flag values from the server instead. |
 | Watchdog never fires | It needs at least 20 health requests in the last minute. Reload `/app` as a persona who gets v2 (e.g. Dana), and check that `health-score-v2-calc` is on. |
 
 ---
