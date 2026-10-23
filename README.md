@@ -9,7 +9,55 @@ This sample app shows how LaunchDarkly helps ABC meet both goals. Teams can **te
 production, release gradually, roll back instantly, target precisely, measure impact, and
 manage AI behavior at runtime**, all without redeploying.
 
-> **Status:** work in progress. Sections marked _Coming in Phase N_ are being built.
+### Quickstart
+
+Assumes Python 3.11+ and git (section 2). The app runs before LaunchDarkly is set up, using
+safe fallback values.
+
+```bash
+git clone https://github.com/3dhedges/abc-pulse.git && cd abc-pulse
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1          # Windows PowerShell  (macOS/Linux: source .venv/bin/activate)
+python -m pip install -r requirements.txt
+python app.py                          # http://localhost:5000  and  http://localhost:5000/app
+```
+
+Then connect LaunchDarkly with one command: add an API token to `.env` and run
+`python scripts/setup_launchdarkly.py` (section 3.0). Section 5 is the guided demo.
+
+### Contents
+
+- [Requirements map](#requirements-map): every assignment requirement, where it's implemented, and how to see it
+- [1. What this demonstrates](#1-what-this-demonstrates)
+- [2. Prerequisites & assumptions](#2-prerequisites--assumptions)
+- [3. LaunchDarkly setup](#3-launchdarkly-setup): automated (3.0) or manual (3.1–3.2)
+- [4. Run the app](#4-run-the-app)
+- [5. Demo script](#5-demo-script): Release & Remediate, Target, Experimentation, AI Configs
+- [6. Troubleshooting](#6-troubleshooting)
+- [7. Design decisions & production considerations](#7-design-decisions--production-considerations)
+- [8. Integrations: code references](#8-integrations-code-references)
+- [Project layout](#project-layout)
+
+---
+
+## Requirements map
+
+| Assignment requirement | How it's implemented | Where in the code | See it |
+|---|---|---|---|
+| **Part 1: Feature flag** (release and roll back a feature) | Boolean flag `account-health-panel` switches the Pulse app between the legacy usage-stats table and the new Account Health experience | [static/js/app.js](static/js/app.js), [static/js/health-panel.js](static/js/health-panel.js) | §5.1 steps 1–4 |
+| **Part 1: Instant releases/rollbacks** (listener, no reload) | The JS SDK streams changes, and `client.on('change', …)` re-renders the page | [static/js/ld.js](static/js/ld.js) (`startLD`, `onFlagChange`), [static/js/app.js](static/js/app.js) | §5.1 steps 3–4 |
+| **Part 1: Remediate with a trigger** | A generic flag trigger turns off the buggy `health-score-v2-calc`, fired manually (curl) or automatically by a watchdog on an error-rate spike | [scripts/kill-switch.sh](scripts/kill-switch.sh), [scripts/watchdog.py](scripts/watchdog.py), [scoring.py](scoring.py) | §5.1 steps 5–7 |
+| **Part 2: Feature flag on a component** | String flag `landing-hero` picks the marketing hero: `control`, `roi-calculator`, or `social-proof` | [static/js/marketing.js](static/js/marketing.js), [static/index.html](static/index.html) | §5.2 |
+| **Part 2: Context attributes** | Marketing `user` contexts carry `industry`, `companySize`, `country`, `referrer`, `device`. App users are a `user` + `organization` multi-context (`role`, `region`, `betaTester`, private `email`; org `plan`, `seats`) | [personas.py](personas.py) | §3.3, demo panel |
+| **Part 2: Individual targeting** | `qa-tester-01` and `sales-demo` → `roi-calculator`, overriding the rules | [scripts/setup_launchdarkly.py](scripts/setup_launchdarkly.py) (`flag_targeting`) | §5.2 rows 5–6 |
+| **Part 2: Rule-based targeting** | Four ordered rules (localization, compliance, channel, company size) plus a 10% default rollout | same | §5.2 rows 1–4, 7 |
+| **Extra: Metric** | Custom conversion metrics `demo-request-clicked` (primary) and `pricing-page-viewed` (guardrail), sent with `track()` | [static/js/marketing.js](static/js/marketing.js) | §3.2 |
+| **Extra: Experiment** | ROI calculator vs control, 50/50, on `landing-hero` rule 5 | §3.2 experiment table | §5.3 |
+| **Extra: Measure** | Simulated visitors through the real SDK. Result: **+28% demo requests, statistically significant**, with a decision memo | [scripts/simulate_traffic.py](scripts/simulate_traffic.py) | §5.3 results |
+| **Extra: AI Config** | `account-assistant`: an execs-get-a-brief (Claude Haiku) vs CSMs-get-a-deep-dive (Claude Opus) model and prompt, with tokens, latency and 👍/👎 tracked | [assistant.py](assistant.py), [static/js/assistant-panel.js](static/js/assistant-panel.js) | §5.4 |
+| **Extra: AI experiment** (optional) | Not run. §7 describes the next step (prompt variants vs thumbs-up rate) | n/a | §7 |
+| **Extra: Integrations** | The LaunchDarkly code-references GitHub Action, plus the REST API for one-command setup | [.github/workflows/code-refs.yml](.github/workflows/code-refs.yml), [scripts/setup_launchdarkly.py](scripts/setup_launchdarkly.py) | §8, §3.0 |
+| **Submission: comments where keys or flags must be set up** | Every such place has a `# LD SETUP:` / `// LD SETUP:` comment. Search the repo for `LD SETUP` | all files | n/a |
 
 ---
 
@@ -20,15 +68,68 @@ manage AI behavior at runtime**, all without redeploying.
 | Marketing site (about 40k visitors/day in the story) | `http://localhost:5000/` | **Target**: individual and rule-based targeting of a new landing-page hero · **Experimentation**: does the new hero increase demo requests? |
 | Pulse app (signed-in CSMs) | `http://localhost:5000/app` | **Release & Remediate**: a new Account Health panel behind a flag, live toggling, and a trigger-based kill switch · **AI Configs**: an account-summary assistant whose model and prompt change by role |
 
-_Detailed business framing for each part: Coming in Phase 7._
+**Why it matters to ABC**
+- **Release & Remediate.** ABC wants to ship faster without risking quality. The new Account
+  Health panel ships "dark", is tested in production by internal beta testers, then released to
+  everyone with a click. When a later change (a new scoring algorithm) breaks some accounts, a
+  **flag trigger** turns off just that change in seconds. A human can fire it with one `curl`,
+  or a monitoring tool can fire it automatically. No deploy, no rollback build.
+- **Target.** Several teams are revamping a landing page with about 40,000 visitors a day. This
+  team's hero is shown to the audiences it was built for (enterprise buyers, social traffic),
+  held back where it isn't ready (DE/FR localization, a compliance review for regulated
+  industries), previewed by QA and Sales individually, and rolled out to 10% of everyone else.
+- **Experimentation.** Product decisions need evidence. A 50/50 experiment shows the ROI hero
+  lifts demo requests by about 28% without hurting pricing interest, which leads to a clear
+  ship decision.
+- **AI Configs.** ABC's AI assistant gets the right model and prompt for each audience, and the
+  AI PM can change either live, kill the feature, and watch cost, latency and satisfaction
+  per variation, all without engineering.
+
+**How it fits together**
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    MKT["Marketing site /<br/>landing-hero"]
+    APP["Pulse app /app<br/>account-health-panel"]
+    JSSDK["LaunchDarkly JS SDK v4<br/>streaming + change listener"]
+  end
+  subgraph Server["Flask server: app.py"]
+    PYSDK["LaunchDarkly Python SDK<br/>health-score-v2-calc"]
+    AISDK["LaunchDarkly AI SDK<br/>account-assistant"]
+    HEALTH["/api/health<br/>error rate"]
+  end
+  subgraph Tools["Scripts and CI"]
+    WATCH["watchdog.py"]
+    SIM["simulate_traffic.py"]
+    SETUP["setup_launchdarkly.py"]
+    GHA["GitHub Action:<br/>code references"]
+  end
+  LD[("LaunchDarkly")]
+  CLAUDE["Anthropic Claude<br/>(optional; mock otherwise)"]
+
+  MKT --> JSSDK
+  APP --> JSSDK
+  APP -->|"API + X-Persona"| PYSDK
+  JSSDK <-->|streaming| LD
+  PYSDK <-->|"flags, events"| LD
+  AISDK <-->|"configs, AI metrics"| LD
+  AISDK --> CLAUDE
+  WATCH -->|polls| HEALTH
+  WATCH -->|"fires trigger"| LD
+  SIM -->|"evaluations + track()"| LD
+  SETUP -->|"REST API"| LD
+  GHA -->|"flag references"| LD
+```
 
 ---
 
 ## 2. Prerequisites & assumptions
 
 - **OS:** Windows 10/11, macOS, or Linux. Commands are given for PowerShell (Windows) and bash/zsh (macOS/Linux).
-- **Python 3.11 or newer** on your `PATH`. Check with `python --version` (on some macOS/Linux systems, `python3 --version`).
-- **git**, to clone the repo.
+- **Python 3.11 or newer** on your `PATH`. Check with `python --version` (on some macOS/Linux systems, `python3 --version`). CI runs the tests on 3.11 and 3.12.
+- **git**, to clone the repo. On Windows, **Git Bash** (included with Git for Windows) also runs `scripts/kill-switch.sh`; a PowerShell one-liner alternative is in §5.1.
+- **Windows:** clone into a short path such as `C:\Users\<you>\abc-pulse`. Some dependencies have very long file names, and very deep folders can exceed Windows' path-length limit (see Troubleshooting).
 - A modern browser (Chrome, Edge, Firefox, or Safari).
 - **A LaunchDarkly account.** A [free trial](https://launchdarkly.com/start-trial/) works. You don't need it for the first run below. It's required from the LaunchDarkly setup step onward.
 - _Optional:_ an **Anthropic** API key for the AI assistant. Without one, the app uses a built-in mock.
@@ -69,7 +170,9 @@ values) and checks that every persona gets the expected result.
 
 **Safe to re-run.** Anything that already exists is left alone, so running it against a project
 you set up by hand changes nothing. `--reset` puts the flags' and AI Config's **targeting** back to
-the documented demo state, for example after experimenting in the demo. Flag triggers and AI
+the documented demo state, for example after experimenting in the demo. **Caution:** it replaces
+`landing-hero`'s rules with new ones, so an experiment running on rule 5 loses its audience.
+Don't use `--reset` while the experiment is running. Flag triggers and AI
 Configs depend on your LaunchDarkly plan; if one isn't available, the script says so and carries on.
 
 **The manual steps below are the reference for what the script creates, and the fallback if you'd
@@ -342,6 +445,22 @@ Open:
 
 Stop the server with `Ctrl+C`.
 
+### 4.6 Run the tests
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+21 smoke tests run in under a second, with LaunchDarkly offline and without reading your `.env`:
+- scoring (v1 matches the data; v2 fails exactly where intended);
+- the API (pages, health, the buggy-v2 error spike, the assistant and feedback);
+- the error-rate monitor;
+- the setup script's targeting instructions;
+- the Claude request built from the AI Config.
+
+GitHub Actions runs the same suite on Python 3.11 and 3.12 on every push
+([.github/workflows/tests.yml](.github/workflows/tests.yml)).
+
 ---
 
 ## 5. Demo script
@@ -378,6 +497,19 @@ webhook calls the LaunchDarkly trigger URL. Nobody has to be awake for the rollb
 `python scripts/watchdog.py --help` lists the threshold, minimum-request, and interval options.
 `--dry-run` reports a breach without firing.
 
+**Screenshots**
+
+The beta-tester rule on `account-health-panel` (Test environment): beta testers get `true`,
+everyone else `false`.
+
+![account-health-panel targeting: rule 1 serves true to users whose betaTester is true; the default rule serves false](docs/images/ld-health-panel-targeting.png)
+
+Dana (a beta tester) sees the new experience: the **Health** column and the **Account health**
+panel. The demo panel shows `account-health-panel` = `true` because of **Rule 1**, and the
+server-evaluated `health-score-v2-calc`.
+
+![Pulse app as Dana: accounts table with a Health score column and the Account health panel with a score gauge, renewal likelihood, adoption bars and login trend](docs/images/app-new-vs-old.png)
+
 ### 5.2 Target (Part 2): `/`
 
 **Scenario:** several teams are revamping the landing page, which gets about 40,000 visitors a day.
@@ -405,6 +537,11 @@ in LaunchDarkly and save. Without a reload, the hero changes as the visitor fall
 default rollout.
 
 Try the ROI calculator's inputs too: the results update as you type.
+
+**Screenshot:** the Enterprise SaaS visitor gets the ROI-calculator hero. The demo panel shows
+why: `landing-hero` = `"roi-calculator"` from **Rule 4** (`companySize ≥ 500`).
+
+![Marketing site as the Enterprise SaaS visitor: the ROI calculator hero, with the demo panel showing landing-hero = roi-calculator, Rule 4](docs/images/hero-roi-calculator.png)
 
 ### 5.3 Experimentation (extra credit): `/`
 
@@ -488,6 +625,20 @@ deploy**. LaunchDarkly measures cost, speed, and user satisfaction per variation
 With LaunchDarkly unreachable, the assistant uses a built-in fallback configuration (a short
 Haiku brief), so it keeps working. The meta line then shows the variation as `fallback`.
 
+**Screenshots**
+
+Dana (CSM) gets the `csm-deep-dive` variation from **real Claude Opus** (`anthropic` provider):
+a health summary, risk drivers, and next actions with owners and timing. The meta line shows
+the variation, model, latency and tokens.
+
+![Account assistant output for Bluefin Retail: csm-deep-dive, claude-opus-5-5, 19.9s, 2,329 tokens, with health summary, key risk drivers and recommended next actions](docs/images/app-assistant.png)
+
+The AI Config's **Monitoring** tab: cost, satisfaction (from 👍/👎) and requests per variation.
+The Haiku brief costs a small fraction of the Opus deep dive. That's the cost/quality trade-off
+an AI PM can now manage per audience.
+
+![AI Config Monitoring tab: total input/output cost, satisfaction rating and requests, with per-variation costs for csm-deep-dive and exec-brief](docs/images/ld-ai-config-monitoring.png)
+
 ---
 
 ## 6. Troubleshooting
@@ -498,6 +649,7 @@ Haiku brief), so it keeps working. The meta line then shows the variation as `fa
 | `Missing .../data/accounts.json` on startup | Run `python scripts/seed_data.py`. |
 | `ModuleNotFoundError: No module named 'flask'` (or `'ldclient'`, `'dotenv'`) | The virtual environment isn't active in **this** terminal. Activate it (step 4.1) in every new terminal, including the second one used for `watchdog.py` or `simulate_traffic.py`. Or run `.venv\Scripts\python` (Windows) / `.venv/bin/python` (macOS/Linux) directly. If it's active and the error persists, run `python -m pip install -r requirements.txt`. |
 | `python` not found on macOS/Linux | Use `python3`. |
+| Windows: `pip install` fails with `OSError: [Errno 2] No such file or directory` and a hint about **long path support** | The repo is in a very deep folder. Move or clone it to a short path (e.g. `C:\Users\<you>\abc-pulse`), or enable Windows long paths (see the link in the error). |
 | `pip install` fails with "Defaulting to user installation…" or "No matching distribution found for Flask==3.1.2" | pip is running under a different (often older) Python, not the virtual environment. Activate the venv and use `python -m pip install -r requirements.txt` (or `.venv\Scripts\python -m pip …` on Windows). |
 | Demo panel shows **Not configured** | `LD_SDK_KEY` / `LD_CLIENT_SIDE_ID` is missing from `.env`. Add it and restart the server. |
 | Server SDK shows **Error: HTTP 401** | The SDK key is wrong or belongs to another environment. Copy it again from **Project settings → Environments**. |
@@ -525,15 +677,77 @@ Haiku brief), so it keeps working. The meta line then shows the variation as `fa
 
 ## 7. Design decisions & production considerations
 
-_The full section is coming in Phase 7. Notes so far:_
+### Architecture choices in this sample
 
-- **AI SDK choice.** The assistant uses LaunchDarkly's stable Python AI SDK,
-  `launchdarkly-server-sdk-ai`. LaunchDarkly now recommends its new **AgentControl** SDK
-  (`launchdarkly-ai-server`) for new applications, but that SDK is in open beta (breaking
-  changes possible), async-only, and requires Python 3.12+. For a sample that has to run
-  reliably on a reviewer's machine, the stable SDK is the safer choice. It also provides
-  fallback defaults and user-feedback tracking. All AI logic is in [assistant.py](assistant.py),
-  so migrating later is contained to one module.
+- **Evaluate each flag where its feature lives.**
+  - UI flags (`account-health-panel`, `landing-hero`) are evaluated in the browser, so the
+    change listener can swap the UI instantly.
+  - `health-score-v2-calc` changes server logic, so it's evaluated on the server and **not**
+    exposed to client-side SDKs. Anything client-side is readable with the public client-side ID.
+- **One source of truth for keys, fallbacks and contexts.**
+  - Flag keys and their fallback values are defined once per side: [flags.py](flags.py) and
+    [static/js/ld.js](static/js/ld.js).
+  - Personas (LaunchDarkly contexts) are defined once in [personas.py](personas.py), and the
+    browser and server share them. All evaluation goes through one helper per side.
+- **Fail safe.** Every evaluation has a fallback that is the *existing* experience:
+  - the app runs with no keys, with LaunchDarkly unreachable, or with a flag missing;
+  - the AI assistant falls back to a built-in config and a mock provider;
+  - the SDK client is a single instance per process.
+- **Isolate new code.** The new Health experience lives in its own module
+  ([static/js/health-panel.js](static/js/health-panel.js)), and the AI logic in
+  [assistant.py](assistant.py). When the flags are retired, the old path deletes cleanly.
+
+### What I'd do differently with a real customer in production
+
+- **No flicker or polling.**
+  - Instead of hiding the hero for up to a second, **bootstrap** flag values: the server
+    evaluates `all_flags_state` for the visitor and passes it to the JS SDK's `bootstrap` option.
+  - Push server-side flag changes to the browser over SSE instead of polling every 3 seconds.
+  - At high traffic, or in locked-down networks, run the **Relay Proxy**.
+- **Safer rollouts.**
+  - Replace the `betaTester` attribute rule with a **segment** (e.g. "Internal beta testers"),
+    reusable across flags.
+  - Release with a **guarded rollout** that steps up the percentage and rolls back
+    automatically on a metric regression.
+  - Bucket by **`organization`** so everyone at a customer company sees the same thing.
+  - In Production, require **approvals** and **comments** for flag changes.
+- **Real monitoring instead of the watchdog.** The watchdog stands in for an APM alert. In
+  production, a Datadog or New Relic alert on the health endpoint's error rate would call the
+  same trigger URL from its webhook.
+- **Flag lifecycle.** Every flag here is **temporary**. Once a feature is fully released:
+  - **code references** (§8) show what to delete;
+  - remove the old code path and the flag check;
+  - archive the flag, after which LaunchDarkly warns if code still references it.
+- **Privacy and secrets.**
+  - `email` is a **private attribute**: rules can use it, but it's never sent in events.
+  - Marketing visitors are **anonymous contexts**, so they don't create permanent context
+    records. The trade-off is that experiment results can't be sliced by their attributes; if
+    per-segment results matter, design separate experiments on rules for those segments.
+  - SDK keys, API tokens, the trigger URL and the LLM key stay in `.env` or CI secrets, never
+    in code. Only the client-side ID reaches the browser.
+- **Experiment rigor.**
+  - Run real experiments for at least one or two full weeks, to cover weekday and weekend
+    behavior.
+  - Size them up front (the sample-size calculator), keep guardrail metrics, and plan on the
+    low end of the confidence interval.
+  - The results here come from simulated traffic, clearly labeled.
+- **AI governance.**
+  - Restrict which models variations may use (an allow-list of model configs).
+  - Track cost per variation using token counts.
+  - Add automated **judges** next to 👍/👎.
+  - Experiment on prompt variants with the thumbs-up rate or cost per summary as the metric,
+    the same workflow as §5.3.
+
+### Notes on SDK and model choices
+
+- **AI SDK.**
+  - The assistant uses LaunchDarkly's stable Python AI SDK, `launchdarkly-server-sdk-ai`.
+    LaunchDarkly now recommends its new **AgentControl** SDK (`launchdarkly-ai-server`) for new
+    applications, but that SDK is in open beta (breaking changes possible), async-only, and
+    requires Python 3.12+.
+  - For a sample that has to run reliably on a reviewer's machine, the stable SDK is the safer
+    choice. It also provides fallback defaults and user-feedback tracking.
+  - Migrating later is contained to [assistant.py](assistant.py).
 - **Claude request settings.**
   - Current Claude models are steered with **effort** rather than temperature, and reject
     sampling parameters. So `effort` is an AI Config custom parameter, and `temperature` is
@@ -543,9 +757,10 @@ _The full section is coming in Phase 7. Notes so far:_
     request, it's retried on a recommended model instead of failing.
   - Remaining refusals and API errors are tracked as errors on the AI Config and shown to the
     user as a clear message.
-- **Next step for AI: experiment on prompts.** With two prompt variants on the same audience,
-  an AI Config experiment could use the thumbs-up rate (or cost per summary) as its metric, the
-  same workflow as section 5.3.
+- **Browser SDK.** `@launchdarkly/js-client-sdk` v4 has no script-tag build, so its ES module
+  build is **self-hosted** under `static/vendor/` (unmodified, with its license), as
+  LaunchDarkly recommends for production instead of a public CDN. All page scripts are ES
+  modules; no bundler is needed.
 
 ---
 
@@ -563,7 +778,10 @@ Why it matters:
 - **Safety:** LaunchDarkly warns before you archive a flag that code still references.
 - **Ownership:** anyone looking at a flag sees where it lives.
 
-[.ldignore](.ldignore) keeps vendored files, data and docs out of the scan (gitignore syntax).
+[.ldignore](.ldignore) keeps vendored files, data and documentation out of the scan (gitignore
+syntax), so each flag's references are just the code you'd change when retiring it.
+
+![Code references for account-health-panel: the abc-pulse repository on master, with the flag key highlighted in flags.py and scripts/setup_launchdarkly.py](docs/images/ld-code-references.png)
 
 **To enable it on your fork:**
 1. In GitHub, go to **Settings → Secrets and variables → Actions** and add a repository secret
@@ -606,8 +824,11 @@ abc-pulse/
 │   │   ├── marketing.js
 │   │   └── app.js
 │   └── vendor/launchdarkly/ # Self-hosted JS SDK (unmodified npm build + license)
+├── tests/               # Smoke tests: python -m unittest discover -s tests
 ├── docs/PLAN.md         # Build plan
+├── docs/images/         # README screenshots
 ├── .github/workflows/code-refs.yml # LaunchDarkly code references (GitHub Action)
+├── .github/workflows/tests.yml     # Smoke tests on Python 3.11 and 3.12 (GitHub Action)
 └── .ldignore            # Paths the code-references scan skips
 ```
 

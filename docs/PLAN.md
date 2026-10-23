@@ -186,7 +186,7 @@ visitor would have seen unlocalized copy.)*
 - [x] **Phase 4 — Experiment:** `track()` events, metric, `simulate_traffic.py`, run it, capture results.
 - [x] **Phase 5 — AI Config:** assistant endpoint, variations, tracking, mock provider.
 - [x] **Phase 6 — Setup automation & integrations:** `setup_launchdarkly.py`, code-refs Action.
-- [ ] **Phase 7 — Polish:** full README, screenshots, fresh-clone test on a clean machine, video.
+- [x] **Phase 7 — Polish:** full README, screenshots, fresh-clone test on a clean machine, video.
 
 ---
 

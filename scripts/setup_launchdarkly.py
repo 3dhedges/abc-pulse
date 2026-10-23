@@ -511,7 +511,8 @@ def main():
                  "(Organization settings > Authorization) with the Writer role and add it to .env.")
 
     if args.reset and not args.dry_run:
-        print("--reset: existing flags and the AI Config will be put back to the documented demo targeting.")
+        print("--reset: existing flags and the AI Config will be put back to the documented demo targeting.\n"
+              "  Note: landing-hero's rules are replaced, so an experiment running on rule 5 loses its audience.")
     api = LaunchDarklyAPI(token, dry_run=args.dry_run)
 
     try:

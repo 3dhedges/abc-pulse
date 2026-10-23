@@ -57,6 +57,13 @@ modifies existing resources unless `--reset`, which only resets targeting) and o
 versa). Request bodies were checked against LD's OpenAPI spec; semantic patch needs
 `Content-Type: application/json; domain-model=launchdarkly.semanticpatch`.
 
+## Tests and CI
+- `python -m unittest discover -s tests -v`: stdlib smoke tests. `tests/support.py` blanks
+  LD/LLM env vars and stubs `load_dotenv` before importing `app`, so tests run offline and never
+  read `.env`. Import `support` first in every new test module.
+- GitHub Actions: `tests.yml` (Python 3.11 and 3.12) and `code-refs.yml` (skips when the
+  `LD_API_TOKEN` repo secret is missing). Keep both green.
+
 ## Run
 ```
 cp .env.example .env   # fill in keys

@@ -1,6 +1,12 @@
 # Files the LaunchDarkly code-references scanner skips (gitignore syntax).
+# Goal: each flag's Code references page lists only real code, i.e. what
+# you'd delete when the flag is retired.
+
 # Vendored third-party code and generated data aren't our flag usage.
 static/vendor/
 data/
-# Planning docs mention flag keys but aren't code.
+
+# Documentation mentions flag keys constantly but isn't code.
 docs/
+*.md
+.env.example
