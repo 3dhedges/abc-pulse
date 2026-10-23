@@ -49,6 +49,14 @@ ABC Company sells **Pulse**, a customer-success platform for B2B SaaS companies.
 | `demo-request-clicked` | metric (custom conversion) | marketing | Experiment primary metric (CTA clicks) |
 | `pricing-page-viewed` | metric (custom conversion) | marketing | Experiment secondary/guardrail metric (Pricing link) |
 
+## LaunchDarkly setup automation
+`scripts/setup_launchdarkly.py` (stdlib REST client + SDK self-check) creates the project, flags,
+targeting, trigger, metrics, and AI Config described in README 3.2. It's idempotent (never
+modifies existing resources unless `--reset`, which only resets targeting) and only fills blank
+`.env` values. When README 3.2 changes, update the script's spec constants to match (and vice
+versa). Request bodies were checked against LD's OpenAPI spec; semantic patch needs
+`Content-Type: application/json; domain-model=launchdarkly.semanticpatch`.
+
 ## Run
 ```
 cp .env.example .env   # fill in keys

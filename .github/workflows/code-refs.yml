@@ -1,0 +1,38 @@
+# LaunchDarkly code references: on every push to master, scan the repo for
+# flag keys and send the locations to LaunchDarkly. Each flag's "Code
+# references" tab then shows where it's used. It also flags code that still
+# references a flag after the flag is archived, and flags that were removed
+# from code (cleanup candidates).
+#
+# LD SETUP: In GitHub, add a repository secret named LD_API_TOKEN
+# (Settings > Secrets and variables > Actions) containing a LaunchDarkly API
+# access token with the Writer role. Change projKey if your project key isn't abc-pulse.
+name: LaunchDarkly code references
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {} # allows a manual run from the Actions tab
+
+jobs:
+  find-code-references:
+    runs-on: ubuntu-latest
+    env:
+      # Lets forks without the secret skip the scan instead of failing the run.
+      HAS_LD_TOKEN: ${{ secrets.LD_API_TOKEN != '' }}
+    steps:
+      - name: Skip notice
+        if: env.HAS_LD_TOKEN != 'true'
+        run: echo "LD_API_TOKEN secret not set; skipping LaunchDarkly code references."
+      - uses: actions/checkout@v4
+        if: env.HAS_LD_TOKEN == 'true'
+        with:
+          # Must cover the Action's lookback (10 commits by default), which
+          # detects flags that were removed from code.
+          fetch-depth: 11
+      - name: Find LaunchDarkly flag references
+        if: env.HAS_LD_TOKEN == 'true'
+        uses: launchdarkly/find-code-references@v2.18.3
+        with:
+          accessToken: ${{ secrets.LD_API_TOKEN }}
+          projKey: abc-pulse

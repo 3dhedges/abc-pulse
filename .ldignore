@@ -1,0 +1,6 @@
+# Files the LaunchDarkly code-references scanner skips (gitignore syntax).
+# Vendored third-party code and generated data aren't our flag usage.
+static/vendor/
+data/
+# Planning docs mention flag keys but aren't code.
+docs/

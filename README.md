@@ -41,6 +41,40 @@ _Detailed business framing for each part: Coming in Phase 7._
 The app runs without LaunchDarkly: every flag then serves its **fallback value** (the
 existing, safe experience). Connect it to see flags, targeting, and live updates.
 
+### 3.0 Automated setup (recommended)
+
+[scripts/setup_launchdarkly.py](scripts/setup_launchdarkly.py) builds everything below through
+LaunchDarkly's REST API, in about a minute:
+- the project, if it doesn't exist yet;
+- the three flags, with their variations and the demo targeting;
+- the kill-switch trigger;
+- both experiment metrics;
+- the AI Config.
+
+It then writes the SDK key, client-side ID and trigger URL into `.env` (it only fills **blank**
+values) and checks that every persona gets the expected result.
+
+1. In LaunchDarkly, create an **API access token**: **Organization settings → Authorization →
+   Create token**, with the **Writer** role (**Admin** if the script needs to create the project).
+   Put it in `.env` as `LD_API_TOKEN`. It's a secret, and `.env` is gitignored.
+2. Run it with the venv active, from the repo root:
+   ```bash
+   python scripts/setup_launchdarkly.py               # uses LD_PROJECT_KEY / LD_ENVIRONMENT_KEY from .env
+   python scripts/setup_launchdarkly.py --dry-run     # optional: preview without changing anything
+   ```
+   A successful run ends with `[ok]` for every check.
+3. Create and **start** the experiment in the UI (the last table in section 3.2). It's the one
+   step that isn't automated: starting an experiment is a deliberate product decision.
+4. Restart `python app.py`.
+
+**Safe to re-run.** Anything that already exists is left alone, so running it against a project
+you set up by hand changes nothing. `--reset` puts the flags' and AI Config's **targeting** back to
+the documented demo state, for example after experimenting in the demo. Flag triggers and AI
+Configs depend on your LaunchDarkly plan; if one isn't available, the script says so and carries on.
+
+**The manual steps below are the reference for what the script creates, and the fallback if you'd
+rather click through it.**
+
 ### 3.1 Connect the SDKs
 
 1. Sign in to LaunchDarkly (a [trial account](https://launchdarkly.com/start-trial/) works).
@@ -59,8 +93,8 @@ existing, safe experience). Connect it to see flags, targeting, and live updates
 
 ### 3.2 Flags
 
-Create these flags in your project (**Flags → Create flag**) with **exactly** these keys.
-Automated setup with `scripts/setup_launchdarkly.py` is coming in Phase 6.
+Create these flags in your project (**Flags → Create flag**) with **exactly** these keys, or let
+the setup script (section 3.0) do it.
 
 > **Client-side availability matters.** Anything the browser can read, anyone with your
 > (public) client-side ID can read. So expose a flag to client-side SDKs only if the browser
@@ -325,8 +359,9 @@ side, with the **Demo controls** panel open.
 The plan: test it in production with internal beta testers, release it to everyone, and
 make sure any bad change can be turned off in seconds.
 
-**Before you start:** both flags exist with the beta-tester rule and default `false`, both flags
-are **on**, and the trigger URL is in `.env` (section 3.2).
+**Before you start:** both flags exist with the beta-tester rule and default `false`.
+`account-health-panel` is **on**, `health-score-v2-calc` is **off** (step 5 turns it on), and the
+trigger URL is in `.env` (section 3.2). The setup script leaves things in exactly this state.
 
 | # | Do | Watch |
 |---|---|---|
@@ -480,6 +515,10 @@ Haiku brief), so it keeps working. The meta line then shows the variation as `fa
 | Assistant meta line says `fallback` | The AI Config wasn't found or LaunchDarkly is unreachable. Check the key `account-assistant`, that the AI Config is on, and the Server SDK status. |
 | Assistant: "The AI provider rejected the API key" | `LLM_API_KEY` must be an **Anthropic** API key. Leave it blank to use the mock. |
 | Assistant: "The AI provider returned an error (HTTP 404)" | The model ID in the AI Config variation is wrong. Use exactly `claude-haiku-5-5` or `claude-opus-5-5`. |
+| Setup script: `HTTP 401` | `LD_API_TOKEN` is wrong or expired. Create a new API access token (section 3.0). |
+| Setup script: `HTTP 403` | The token's role is too low. Use **Writer**, or **Admin** if the project doesn't exist yet. |
+| Setup script: `[FAIL]` on a check | Targeting differs from the documented setup, usually after manual edits. Re-run with `--reset`. |
+| Setup script: "a trigger already exists" and `LD_TRIGGER_URL` is blank | LaunchDarkly only shows a trigger's URL when it's created. Open the trigger in the flag's settings, reset its URL, and paste it into `.env`. |
 | Watchdog never fires | It needs at least 20 health requests in the last minute. Reload `/app` as a persona who gets v2 (e.g. Dana), and check that `health-score-v2-calc` is on. |
 
 ---
@@ -510,6 +549,31 @@ _The full section is coming in Phase 7. Notes so far:_
 
 ---
 
+## 8. Integrations: code references
+
+[.github/workflows/code-refs.yml](.github/workflows/code-refs.yml) runs LaunchDarkly's
+[find-code-references](https://github.com/launchdarkly/find-code-references) GitHub Action on
+every push to `master`. It scans the repository for flag keys and sends their locations to
+LaunchDarkly. Each flag's **Code references** tab then shows the exact files and lines that
+use it, for example `flags.py`, `static/js/ld.js` and `app.py` for `health-score-v2-calc`.
+
+Why it matters:
+- **Cleanup:** when a temporary flag is fully rolled out, the references show exactly what code
+  to delete.
+- **Safety:** LaunchDarkly warns before you archive a flag that code still references.
+- **Ownership:** anyone looking at a flag sees where it lives.
+
+[.ldignore](.ldignore) keeps vendored files, data and docs out of the scan (gitignore syntax).
+
+**To enable it on your fork:**
+1. In GitHub, go to **Settings → Secrets and variables → Actions** and add a repository secret
+   named `LD_API_TOKEN` (the same name as in `.env`): a LaunchDarkly API access token with the **Writer** role.
+2. If your project key isn't `abc-pulse`, change `projKey` in the workflow.
+3. Push to `master`, or run the workflow manually from the **Actions** tab. Then open any flag's
+   **Code references** tab.
+
+---
+
 ## Project layout
 
 ```
@@ -527,6 +591,7 @@ abc-pulse/
 ├── scripts/
 │   ├── seed_data.py     # Generates data/accounts.json (stdlib only)
 │   ├── kill-switch.sh   # Manual remediation: POST the flag trigger URL
+│   ├── setup_launchdarkly.py # One-command LaunchDarkly setup via the REST API
 │   ├── watchdog.py      # Automatic remediation: fire the trigger on an error spike
 │   └── simulate_traffic.py # Simulated visitors for the landing-hero experiment
 ├── static/
@@ -541,7 +606,9 @@ abc-pulse/
 │   │   ├── marketing.js
 │   │   └── app.js
 │   └── vendor/launchdarkly/ # Self-hosted JS SDK (unmodified npm build + license)
-└── docs/PLAN.md         # Build plan
+├── docs/PLAN.md         # Build plan
+├── .github/workflows/code-refs.yml # LaunchDarkly code references (GitHub Action)
+└── .ldignore            # Paths the code-references scan skips
 ```
 
 All company, account, and person names in this project are fictional.
