@@ -22,8 +22,10 @@ HEALTH_SCORE_V2_CALC = "health-score-v2-calc"
 # Variations: "control", "roi-calculator", "social-proof".
 LANDING_HERO = "landing-hero"
 
-# Extra credit, AI Configs: model and prompt for the account assistant.
-ACCOUNT_ASSISTANT = "account-assistant"
+# Extra credit, AI Configs ("AgentControl" in newer LaunchDarkly docs): which
+# model and prompt the account assistant uses, per user. See assistant.py.
+# LD SETUP: Create a completion-mode AI Config with this key (README 3.2).
+AI_CONFIG_ACCOUNT_ASSISTANT = "account-assistant"
 
 # Experiment metrics: custom conversion events sent with track().
 # LD SETUP: Create a metric for each with exactly this event key (README 3.2).

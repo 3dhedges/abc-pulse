@@ -4,3 +4,7 @@ Flask==3.1.2
 python-dotenv==1.1.1
 # LaunchDarkly server-side SDK (requires Python 3.10+)
 launchdarkly-server-sdk==9.18.1
+# LaunchDarkly AI SDK: AI Configs for the account assistant (see assistant.py)
+launchdarkly-server-sdk-ai==1.2.0
+# Anthropic (Claude) API client, used only when LLM_API_KEY is set
+anthropic==1.12.1

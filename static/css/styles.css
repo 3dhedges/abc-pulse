@@ -602,6 +602,29 @@ table.kv td { text-align: right; font-variant-numeric: tabular-nums; }
 .risk-list { margin: 0; padding-left: 18px; font-size: 14px; }
 .risk-list li { margin-bottom: 4px; }
 
+/* ---------- Account assistant (AI Config) ---------- */
+
+.assistant { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
+.assistant:empty { display: none; }
+.assistant-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.assistant-head h4 { margin: 0; font-size: 15px; }
+.btn-small { padding: 6px 12px; font-size: 13px; }
+.btn:disabled { opacity: 0.55; cursor: default; }
+.assistant-result { margin-top: 12px; }
+.assistant-meta { margin: 0 0 8px; color: var(--ink-soft); font-size: 11px; overflow-wrap: anywhere; }
+.assistant-text {
+  font-size: 14px;
+  background: var(--bg-muted);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.assistant-text h5 { margin: 10px 0 4px; font-size: 13px; }
+.assistant-text h5:first-child { margin-top: 0; }
+.assistant-text p { margin: 6px 0; }
+.assistant-text ul { margin: 4px 0; padding-left: 18px; }
+.assistant-text li { margin-bottom: 3px; }
+.assistant-feedback { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
+
 /* ---------- Demo controls panel (not part of the product) ---------- */
 
 .demo-panel {

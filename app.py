@@ -8,6 +8,8 @@ Routes
     GET /api/accounts/<id>/health   health score (v1 or v2, per the health-score-v2-calc flag)
     GET /api/health                 error rate of health calculations (watchdog signal)
     GET /api/server-flags           server-evaluated flag values for the current persona
+    POST /api/assistant             AI account summary (model + prompt from the AI Config)
+    POST /api/assistant/feedback    thumbs up/down on a summary
     GET /api/config                 browser config: LaunchDarkly client-side ID + demo personas
     GET /api/status                 server-side LaunchDarkly SDK connection state
 
@@ -30,7 +32,8 @@ from flask import Flask, abort, jsonify, request, send_from_directory
 # missing, this does nothing; the app still runs with defaults.
 load_dotenv()
 
-import ld  # noqa: E402  (must come after load_dotenv)
+import assistant  # noqa: E402  (must come after load_dotenv)
+import ld  # noqa: E402
 import personas  # noqa: E402
 import scoring  # noqa: E402
 from flags import HEALTH_SCORE_V2_CALC, SERVER_FLAGS  # noqa: E402
@@ -152,6 +155,36 @@ def server_flags():
     """
     context = current_context()
     return jsonify({key: ld.evaluate(key, context) for key in SERVER_FLAGS})
+
+
+@app.post("/api/assistant")
+def account_assistant():
+    """Summarize an account with the model and prompt the AI Config serves this user.
+
+    Body: {"accountId": "..."}. The persona (X-Persona) decides the variation,
+    e.g. execs get a short brief and CSMs a detailed review.
+    """
+    body = request.get_json(silent=True) or {}
+    account = ACCOUNTS.get(body.get("accountId", ""))
+    if account is None:
+        abort(404, description="Account not found")
+    try:
+        return jsonify(assistant.summarize(account, current_context()))
+    except assistant.AssistantError as e:
+        return jsonify(error=str(e)), 503
+
+
+@app.post("/api/assistant/feedback")
+def account_assistant_feedback():
+    """Record thumbs up/down for a summary. Body: {"token": "...", "positive": true}."""
+    body = request.get_json(silent=True) or {}
+    if not body.get("token") or not isinstance(body.get("positive"), bool):
+        return jsonify(error="token and positive (true/false) are required"), 400
+    try:
+        assistant.record_feedback(body["token"], body["positive"], current_context())
+    except assistant.AssistantError as e:
+        return jsonify(error=str(e)), 400
+    return jsonify(ok=True)
 
 
 @app.get("/api/config")

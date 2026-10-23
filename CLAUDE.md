@@ -14,7 +14,9 @@ ABC Company sells **Pulse**, a customer-success platform for B2B SaaS companies.
 
 ## Stack (keep it lean)
 - Python 3.11+, Flask (only web dependency)
-- LaunchDarkly Python server SDK + Python AI SDK (server side)
+- LaunchDarkly Python server SDK + Python AI SDK (server side). The AI SDK is the stable
+  `launchdarkly-server-sdk-ai` (not the beta AgentControl `launchdarkly-ai-server`); all AI
+  logic lives in `assistant.py`. Provider: Anthropic Claude when `LLM_API_KEY` is set, otherwise a mock.
 - LaunchDarkly JavaScript client SDK v4 (`@launchdarkly/js-client-sdk`), self-hosted at
   `static/vendor/launchdarkly/js-client-sdk@<version>/index.js` (unmodified npm ESM build,
   imported by `static/js/ld.js`). v4 has no UMD/global build, so all page JS is ES modules.
@@ -43,7 +45,7 @@ ABC Company sells **Pulse**, a customer-success platform for B2B SaaS companies.
 | `account-health-panel` | boolean | app (client-side) | Part 1 feature; change listener swaps old/new UI live |
 | `health-score-v2-calc` | boolean | app (server-only) | Deliberately buggy v2 scoring; its flag trigger is the kill switch (curl / watchdog) |
 | `landing-hero` | string (control / roi-calculator / social-proof) | marketing (client-side) | Part 2: individual targets + 4 ordered rules + 10% default rollout; rule 5 (US/GB/CA/AU) = experiment audience (README 3.2) |
-| `account-assistant` | AI Config | app | Prompt/model variations by role |
+| `account-assistant` | AI Config ("AgentControl"), completion mode | app (server) | `exec-brief` (claude-haiku-5-5) for role Exec, `csm-deep-dive` (claude-opus-5-5) default; custom params `effort`, `style` (mock only) |
 | `demo-request-clicked` | metric (custom conversion) | marketing | Experiment primary metric (CTA clicks) |
 | `pricing-page-viewed` | metric (custom conversion) | marketing | Experiment secondary/guardrail metric (Pricing link) |
 

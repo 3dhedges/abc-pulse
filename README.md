@@ -31,7 +31,7 @@ _Detailed business framing for each part: Coming in Phase 7._
 - **git**, to clone the repo.
 - A modern browser (Chrome, Edge, Firefox, or Safari).
 - **A LaunchDarkly account.** A [free trial](https://launchdarkly.com/start-trial/) works. You don't need it for the first run below. It's required from the LaunchDarkly setup step onward.
-- _Optional:_ an LLM API key for the AI assistant. Without one, the app uses a built-in mock.
+- _Optional:_ an **Anthropic** API key for the AI assistant. Without one, the app uses a built-in mock.
 - Port **5000** must be free (see [Troubleshooting](#6-troubleshooting)).
 
 ---
@@ -185,6 +185,41 @@ in English-speaking markets, in non-regulated industries, not from LinkedIn**. E
 Save, make sure the flag is **on**, and click **Start** on the experiment for the **Test**
 environment. Only events sent **after** the iteration starts are counted.
 
+#### AI Config: `account-assistant` (extra credit)
+
+LaunchDarkly's newer docs call AI Configs **AgentControl**; the UI may use either name. It's an
+add-on, so if **Agents** isn't in the sidebar, your account may not include it.
+
+1. **Agents → Configs → Create**, choose **Completion**, name it "Account assistant", and set the
+   key to **`account-assistant`**. Keys can't be changed later.
+2. On the **Variations** tab, click **Add variation** for each of the two below. Click
+   **Select a model** to choose the model, **Add parameters** to set model and custom
+   parameters, and **+ Add message** for the second message. Then **Review and save**.
+
+| Setting | `exec-brief` | `csm-deep-dive` |
+|---|---|---|
+| Model provider / model | Anthropic / **`claude-haiku-5-5`** (fast, low cost) | Anthropic / **`claude-opus-5-5`** (most capable) |
+| Model parameters (JSON) | `{"max_tokens": 4000}` | `{"max_tokens": 16000}` |
+| Custom parameters (JSON) | `{"effort": "low", "style": "brief"}` | `{"effort": "medium", "style": "detailed"}` |
+| System message | `You are a customer success analyst briefing an executive. Summarize this account's renewal risk in exactly 3 short bullets: outlook, biggest risk, and the one decision or ask for leadership. Plain language, no jargon.` | `You are a senior customer success analyst writing for the CSM who owns this account. Give a short health summary, the key risk drivers, and 3 to 5 recommended next actions, each with an owner and timing. Use "###" headings and "-" bullets.` |
+| User message | `Account data:` followed by `{{account_json}}` on the next line | same |
+
+- **Variables:** the app supplies `{{account_json}}` (the account's data) and `{{account_name}}`.
+  LaunchDarkly also exposes the context as `{{ldctx}}`, e.g. `{{ldctx.user.name}}`.
+- **Custom parameters:** `effort` controls how much the Claude model reasons (`low` is fast and
+  cheap). `style` is used only by the **mock** provider, to pick a brief or detailed layout.
+- **Don't add `temperature`.** Current Claude models reject sampling parameters, so the app
+  ignores it (and logs that it did).
+- If a model ID isn't in LaunchDarkly's model list, add it as a custom model using exactly that ID.
+
+3. **Targeting:** turn the AI Config on, then add rule 1: context kind `user`, attribute `role`
+**is one of** `Exec` → `exec-brief`. Set the **default rule** to `csm-deep-dive` (CSMs and
+CS managers).
+
+**Real model or mock:** with `LLM_API_KEY` set to an Anthropic API key in `.env`, the assistant
+calls Claude. Without one, a mock writes the summary from the account data. The mock still
+reads the variation (style, model name, system prompt), so every AI Config change is visible.
+
 ### 3.3 How the app talks to LaunchDarkly
 
 - **Browser:** [static/js/ld.js](static/js/ld.js) starts the JavaScript SDK
@@ -243,9 +278,12 @@ source .venv/bin/activate
 ```
 
 ### 4.2 Install dependencies
+With the virtual environment active:
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
+`python -m pip` guarantees pip installs into the same Python you run the app with. A bare `pip`
+can belong to a different Python install on machines that have several.
 
 ### 4.3 Create your `.env`
 **Windows:** `Copy-Item .env.example .env`  ·  **macOS/Linux:** `cp .env.example .env`
@@ -393,7 +431,27 @@ experiment). Keep `control` in the codebase until the flag is retired.
 
 > Results come from **simulated** traffic. The simulator's true lift was about +34%
 > (3.97% → 5.31%). LaunchDarkly measured +28% from the data, well within its confidence interval.
-- 5.4 AI Configs: _Coming in Phase 5_
+### 5.4 AI Configs (extra credit): `/app`
+
+**Scenario:** ABC is rolling out an AI assistant that summarizes customer accounts. As the AI
+PM, you want each audience to get the right model and prompt (executives need a fast, short
+brief; CSMs need a thorough review), and you want to improve prompts **without waiting for a
+deploy**. LaunchDarkly measures cost, speed, and user satisfaction per variation.
+
+**Before you start:** `account-assistant` is set up as in section 3.2. `LLM_API_KEY` is optional.
+
+| # | Do | Watch |
+|---|---|---|
+| 1 | As **Priya Raman** (Exec), select an account and click **Summarize this account** | Three bullets. The meta line shows `exec-brief · claude-haiku-5-5 · …s · … tokens` |
+| 2 | Switch to **Dana Whitfield** (CSM) and summarize again | A detailed review with headings and next actions: `csm-deep-dive · claude-opus-5-5`. It's slower and uses more tokens, the expected trade-off |
+| 3 | In LaunchDarkly, edit `csm-deep-dive`'s system message (e.g. "…and end with a one-line risk rating") and save. Summarize again as Dana | The new prompt applies immediately, with no deploy or restart. In mock mode, the footer quotes the new first line |
+| 4 | Change the `Exec` rule to serve `csm-deep-dive`. Summarize as Priya | Priya now gets the deep dive. Change it back |
+| 5 | Click 👍 or 👎 on a few summaries | "Thanks for the feedback." |
+| 6 | Open the AI Config's **Monitoring** tab | Generations, tokens, duration, success rate, and positive/negative feedback, per variation |
+| 7 | Turn the AI Config **off** in LaunchDarkly and summarize again | "The account assistant is turned off": an instant kill switch for the AI feature |
+
+With LaunchDarkly unreachable, the assistant uses a built-in fallback configuration (a short
+Haiku brief), so it keeps working. The meta line then shows the variation as `fallback`.
 
 ---
 
@@ -403,8 +461,9 @@ experiment). Keep `control` in the codebase until the flag is retired.
 |---|---|
 | `Address already in use` or nothing loads on port 5000 (common on macOS, where AirPlay Receiver uses 5000) | Set `PORT=5050` in `.env`, restart, and open `http://localhost:5050`. |
 | `Missing .../data/accounts.json` on startup | Run `python scripts/seed_data.py`. |
-| `ModuleNotFoundError: No module named 'flask'` (or `'ldclient'`, `'dotenv'`) | The virtual environment isn't active in **this** terminal. Activate it (step 4.1) in every new terminal, including the second one used for `watchdog.py` or `simulate_traffic.py`. Or run `.venv\Scripts\python` (Windows) / `.venv/bin/python` (macOS/Linux) directly. If it's active and the error persists, run `pip install -r requirements.txt`. |
+| `ModuleNotFoundError: No module named 'flask'` (or `'ldclient'`, `'dotenv'`) | The virtual environment isn't active in **this** terminal. Activate it (step 4.1) in every new terminal, including the second one used for `watchdog.py` or `simulate_traffic.py`. Or run `.venv\Scripts\python` (Windows) / `.venv/bin/python` (macOS/Linux) directly. If it's active and the error persists, run `python -m pip install -r requirements.txt`. |
 | `python` not found on macOS/Linux | Use `python3`. |
+| `pip install` fails with "Defaulting to user installation…" or "No matching distribution found for Flask==3.1.2" | pip is running under a different (often older) Python, not the virtual environment. Activate the venv and use `python -m pip install -r requirements.txt` (or `.venv\Scripts\python -m pip …` on Windows). |
 | Demo panel shows **Not configured** | `LD_SDK_KEY` / `LD_CLIENT_SIDE_ID` is missing from `.env`. Add it and restart the server. |
 | Server SDK shows **Error: HTTP 401** | The SDK key is wrong or belongs to another environment. Copy it again from **Project settings → Environments**. |
 | Browser SDK shows **Failed** or **Timed out** | Check `LD_CLIENT_SIDE_ID`. Ad blockers and privacy extensions often block `*.launchdarkly.com`; allow the site or try a private window. |
@@ -418,13 +477,36 @@ experiment). Keep `control` in the codebase until the flag is retired.
 | Hero briefly shows the old version | Expected for up to 1 second while flags load (anti-flicker). Production would bootstrap flag values from the server instead. |
 | Simulator: "no visitors landed in the experiment" | Start the experiment iteration, make sure `landing-hero` is on, and check that rule 5 exists. |
 | Experiment results stay empty | Results take a few minutes to update. Only events sent **after** the iteration started count. Check that the metrics' event keys exactly match `demo-request-clicked` and `pricing-page-viewed`. |
+| Assistant meta line says `fallback` | The AI Config wasn't found or LaunchDarkly is unreachable. Check the key `account-assistant`, that the AI Config is on, and the Server SDK status. |
+| Assistant: "The AI provider rejected the API key" | `LLM_API_KEY` must be an **Anthropic** API key. Leave it blank to use the mock. |
+| Assistant: "The AI provider returned an error (HTTP 404)" | The model ID in the AI Config variation is wrong. Use exactly `claude-haiku-5-5` or `claude-opus-5-5`. |
 | Watchdog never fires | It needs at least 20 health requests in the last minute. Reload `/app` as a persona who gets v2 (e.g. Dana), and check that `health-score-v2-calc` is on. |
 
 ---
 
 ## 7. Design decisions & production considerations
 
-_Coming in Phase 7._
+_The full section is coming in Phase 7. Notes so far:_
+
+- **AI SDK choice.** The assistant uses LaunchDarkly's stable Python AI SDK,
+  `launchdarkly-server-sdk-ai`. LaunchDarkly now recommends its new **AgentControl** SDK
+  (`launchdarkly-ai-server`) for new applications, but that SDK is in open beta (breaking
+  changes possible), async-only, and requires Python 3.12+. For a sample that has to run
+  reliably on a reviewer's machine, the stable SDK is the safer choice. It also provides
+  fallback defaults and user-feedback tracking. All AI logic is in [assistant.py](assistant.py),
+  so migrating later is contained to one module.
+- **Claude request settings.**
+  - Current Claude models are steered with **effort** rather than temperature, and reject
+    sampling parameters. So `effort` is an AI Config custom parameter, and `temperature` is
+    ignored.
+  - For models that support it (e.g. `claude-opus-5-5`), requests enable Anthropic's
+    **server-side refusal fallback** (`fallbacks: "default"`). If a safety check declines a
+    request, it's retried on a recommended model instead of failing.
+  - Remaining refusals and API errors are tracked as errors on the AI Config and shown to the
+    user as a clear message.
+- **Next step for AI: experiment on prompts.** With two prompt variants on the same audience,
+  an AI Config experiment could use the thumbs-up rate (or cost per summary) as its metric, the
+  same workflow as section 5.3.
 
 ---
 
@@ -436,6 +518,7 @@ abc-pulse/
 ├── ld.py                # LaunchDarkly server SDK setup + evaluate() helper
 ├── flags.py             # Flag keys and fallback values (server side)
 ├── personas.py          # Demo personas = LaunchDarkly contexts (shared with the browser)
+├── assistant.py         # AI account assistant: AI Config + Claude / mock provider
 ├── scoring.py           # Health score v1 (trusted) and v2 (intentionally buggy)
 ├── health_monitor.py    # Rolling error rate behind /api/health
 ├── requirements.txt
@@ -454,6 +537,7 @@ abc-pulse/
 │   │   ├── ld.js          # LaunchDarkly browser SDK setup, flag keys, fallbacks
 │   │   ├── demo-panel.js  # Demo controls: persona switcher, status, live flag values
 │   │   ├── health-panel.js # NEW Account Health experience (behind account-health-panel)
+│   │   ├── assistant-panel.js # "Summarize this account" + thumbs up/down
 │   │   ├── marketing.js
 │   │   └── app.js
 │   └── vendor/launchdarkly/ # Self-hosted JS SDK (unmodified npm build + license)

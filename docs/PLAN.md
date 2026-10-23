@@ -161,6 +161,11 @@ visitor would have seen unlocalized copy.)*
 - Optional experiment: prompt variants vs thumbs-up rate.
 - Mock provider when `LLM_API_KEY` is absent (canned summaries).
 - Verify current naming/API in docs (AI Configs may appear as "AgentControl").
+- *Phase 5 decisions:* docs now say "AgentControl". Used the stable `launchdarkly-server-sdk-ai`
+  1.2.0 (sync, fallback defaults, feedback via resumption token) rather than the beta
+  `launchdarkly-ai-server` (async, Python 3.12+). Provider: Anthropic (`claude-haiku-5-5` /
+  `claude-opus-5-5`, effort instead of temperature, server-side refusal fallback on Opus).
+  Default rule → `csm-deep-dive`.
 
 ---
 
@@ -179,7 +184,7 @@ visitor would have seen unlocalized copy.)*
 - [x] **Phase 2 — Part 1:** health panel, listener, buggy v2 calc, `/api/health`, kill-switch, watchdog.
 - [x] **Phase 3 — Part 2:** marketing site, hero variants, contexts, document targeting setup.
 - [x] **Phase 4 — Experiment:** `track()` events, metric, `simulate_traffic.py`, run it, capture results.
-- [ ] **Phase 5 — AI Config:** assistant endpoint, variations, tracking, mock provider.
+- [x] **Phase 5 — AI Config:** assistant endpoint, variations, tracking, mock provider.
 - [ ] **Phase 6 — Setup automation & integrations:** `setup_launchdarkly.py`, code-refs Action.
 - [ ] **Phase 7 — Polish:** full README, screenshots, fresh-clone test on a clean machine, video.
 

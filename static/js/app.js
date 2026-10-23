@@ -11,6 +11,7 @@
 import { initDemoPanel } from './demo-panel.js';
 import { FLAGS, variation, onFlagChange } from './ld.js';
 import { fetchHealth, healthColumn, renderHealthPanel } from './health-panel.js';
+import { createAssistantPanel } from './assistant-panel.js';
 
 const state = {
   accounts: [],
@@ -421,6 +422,7 @@ function selectAccount(id, fromUser) {
   plan.textContent = account.plan;
   plan.hidden = false;
   renderDetail();
+  assistantPanel.show(account);
   if (fromUser && healthEnabled()) refreshSelectedHealth();
 
   if (fromUser && narrowScreen.matches) {
@@ -437,16 +439,23 @@ function showError(message) {
 
 // Call the API as the current persona. The server builds the same
 // LaunchDarkly context from X-Persona, so server-side flags match the browser.
-function api(path) {
-  const headers = state.persona ? { 'X-Persona': state.persona.id } : {};
-  return fetch(path, { headers });
+function api(path, options = {}) {
+  const headers = { ...options.headers, ...(state.persona ? { 'X-Persona': state.persona.id } : {}) };
+  return fetch(path, { ...options, headers });
 }
 
-// Show the signed-in user (the selected persona) in the header.
+// AI account assistant, below the account details. Its model and prompt come
+// from the `account-assistant` AI Config, per signed-in user.
+const assistantPanel = createAssistantPanel(document.getElementById('assistant-slot'), api);
+
+// Show the signed-in user (the selected persona) in the header. A different
+// user may get a different AI Config variation, so the assistant resets too.
 function onPersonaChange(persona) {
   state.persona = persona;
   const { name, role } = persona.context.user;
   document.getElementById('signed-in-as').textContent = `Signed in as ${name} (${role})`;
+  const account = state.accounts.find((a) => a.id === state.selectedId);
+  if (account) assistantPanel.show(account);
 }
 
 // Start the demo panel and LaunchDarkly, fetch accounts, build the table,
