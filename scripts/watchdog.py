@@ -95,7 +95,14 @@ def main():
             if args.dry_run:
                 print("THRESHOLD BREACHED: would fire the trigger (dry run, not firing).")
                 return
-            status = fire_trigger(trigger_url, args.app_url, stats)
+            try:
+                status = fire_trigger(trigger_url, args.app_url, stats)
+            except urllib.error.HTTPError as err:
+                # e.g. 404 when the trigger URL was reset or the trigger deleted
+                sys.exit(f"THRESHOLD BREACHED, but the trigger call failed (HTTP {err.code}). "
+                         "Check LD_TRIGGER_URL and that the trigger is enabled.")
+            except (urllib.error.URLError, OSError) as err:
+                sys.exit(f"THRESHOLD BREACHED, but LaunchDarkly couldn't be reached ({err}).")
             print(f"THRESHOLD BREACHED: fired LaunchDarkly trigger (HTTP {status}). "
                   "health-score-v2-calc is now off. Exiting.")
             return

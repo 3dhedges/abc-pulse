@@ -391,7 +391,9 @@ async function refreshSelectedHealth() {
 function onHealthPanelFlagChange() {
   if (!state.accounts.length) return; // init() renders once accounts load
   if (!healthEnabled()) {
-    // Rolled back: drop health-only sort and filter state.
+    // Rolled back: drop health-only sort and filter state, and the cached
+    // scores, which may belong to another persona or scoring algorithm.
+    state.health = {};
     delete state.filters.health;
     if (state.sort.key === 'health') state.sort = { key: 'name', dir: 'asc' };
   }

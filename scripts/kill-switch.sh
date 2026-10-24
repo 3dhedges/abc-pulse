@@ -8,7 +8,7 @@
 #   ./scripts/kill-switch.sh
 #
 # Windows PowerShell equivalent:
-#   Invoke-RestMethod -Method Post -Uri $env:LD_TRIGGER_URL
+#   Invoke-RestMethod -Method Post -Uri "<paste LD_TRIGGER_URL from .env>"
 #
 # LD SETUP: Create a generic trigger on the health-score-v2-calc flag with the
 # action "Turn the flag off", and put its URL in .env as LD_TRIGGER_URL.

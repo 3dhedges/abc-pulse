@@ -22,8 +22,10 @@ python -m pip install -r requirements.txt
 python app.py                          # http://localhost:5000  and  http://localhost:5000/app
 ```
 
-Then connect LaunchDarkly with one command: add an API token to `.env` and run
-`python scripts/setup_launchdarkly.py` (section 3.0). Section 5 is the guided demo.
+Then connect LaunchDarkly with one command: copy `.env.example` to `.env`
+(`Copy-Item .env.example .env` on Windows, `cp .env.example .env` on macOS/Linux), add an API
+token as `LD_API_TOKEN`, and run `python scripts/setup_launchdarkly.py` (section 3.0).
+Section 5 is the guided demo.
 
 ### Contents
 
@@ -594,15 +596,17 @@ experiment). Keep `control` in the codebase until the flag is retired.
 **Caveats and next steps:**
 - **Plan on the low end of the interval.** It's wide (+8% to +49%). Use +8–10%, not +28%, for
   pipeline forecasts.
-- **Run longer with real traffic.** This sample was collected in 18 minutes of simulated
-  traffic. A real test should cover at least one or two full weeks to account for weekday and
-  weekend patterns, even if it reaches significance sooner.
+- **Run longer with real traffic.** This sample is one simulator run (about 2 minutes of
+  sending, all within the 18-minute window shown in the screenshot). A real test should cover at
+  least one or two full weeks to account for weekday and weekend patterns, even if it reaches
+  significance sooner.
 - **Expand the audience next.** Rules 1 and 2 hold DE/FR (localization) and regulated
   industries (compliance review of the ROI claims) on `control`. Once those are cleared, the
   same flag can extend the calculator to them, ideally as a new experiment.
 
 > Results come from **simulated** traffic. The simulator's true lift was about +34%
 > (3.97% → 5.31%). LaunchDarkly measured +28% from the data, well within its confidence interval.
+
 ### 5.4 AI Configs (extra credit): `/app`
 
 **Scenario:** ABC is rolling out an AI assistant that summarizes customer accounts. As the AI
@@ -825,7 +829,6 @@ abc-pulse/
 │   │   └── app.js
 │   └── vendor/launchdarkly/ # Self-hosted JS SDK (unmodified npm build + license)
 ├── tests/               # Smoke tests: python -m unittest discover -s tests
-├── docs/PLAN.md         # Build plan
 ├── docs/images/         # README screenshots
 ├── .github/workflows/code-refs.yml # LaunchDarkly code references (GitHub Action)
 ├── .github/workflows/tests.yml     # Smoke tests on Python 3.11 and 3.12 (GitHub Action)
